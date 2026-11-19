@@ -27,9 +27,11 @@ nav { display: flex; align-items: stretch; }
 .mark b { position: absolute; inset: 0 auto auto 0; width: 1em; height: 1em; }
 .mark-brand { width: 39px; height: 36px; border-radius: 8px; background: #24223d; color: #cbbfff; }
 .mark-brand i { font-size: 2px; }
-.mark-wovenfield { background: #e0efe1; color: #458266; }
-.mark-glowharbor { background: #ffebd5; color: #bc772e; }
-.mark-sandisle { background: #daebf4; color: #4380a0; }
+.mark-wovenfield, .mark-mossgear { background: #e0efe1; color: #458266; }
+.mark-glowharbor, .mark-copperbell { background: #ffebd5; color: #bc772e; }
+.mark-sandisle, .mark-snowdial { background: #daebf4; color: #4380a0; }
+.mark-emberloom { background: #fae5e0; color: #aa5547; }
+.mark-nightferry { background: #e1e7f7; color: #516897; }
 .hero { margin: 30px 0 34px; min-height: 300px; background: #141529; color: white; border-radius: 17px; overflow: hidden; position: relative; display: flex; align-items: center; isolation: isolate; }
 .hero-art { position: absolute; z-index: -1; right: 0; height: 100%; width: 53%; object-fit: cover; object-position: center 51%; mask-image: linear-gradient(to right, transparent, black 21%); }
 .hero-copy { padding: 35px 4.3%; max-width: 57%; }
