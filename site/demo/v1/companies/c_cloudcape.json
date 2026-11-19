@@ -1,0 +1,128 @@
+{
+  "schemaVersion": 1,
+  "company": {
+    "id": "c_cloudcape",
+    "slug": "cloudcape",
+    "name": "云岬互动",
+    "aliases": [
+      "Cloudcape Interactive"
+    ],
+    "reviewCount": 4,
+    "avgScore": 4.5,
+    "scoreDistribution": {
+      "1": 0,
+      "2": 0,
+      "3": 0,
+      "4": 2,
+      "5": 2
+    }
+  },
+  "projects": [
+    {
+      "id": "p_windward",
+      "name": "风沿群岛",
+      "status": "live",
+      "reviewCount": 3,
+      "avgScore": 4.7
+    },
+    {
+      "id": "p_tidelight",
+      "name": "潮光信标",
+      "status": "dev",
+      "reviewCount": 1,
+      "avgScore": 4
+    }
+  ],
+  "byProfile": {
+    "role": [
+      {
+        "key": "design",
+        "count": 3,
+        "avgScore": 4.7
+      }
+    ],
+    "tenure": [
+      {
+        "key": "1-3y",
+        "count": 3,
+        "avgScore": 4.7
+      }
+    ],
+    "employment": [],
+    "city": []
+  },
+  "reviews": [
+    {
+      "schemaVersion": 1,
+      "id": "rv_01KADEV0000000000000000001",
+      "companyId": "c_cloudcape",
+      "projectId": "p_windward",
+      "score": 5,
+      "title": "原型评审有时间真正上手",
+      "comment": "每周的原型评审会留半小时给大家交换手柄。上次调整跳跃手感，美术和程序也各自跑了两遍关卡，讨论直接落到了哪一段输入让人犹豫。我们把两段试玩录像放在一起看，才发现有一处落点总被前景挡住。后来组里决定先改场景，再调角色参数。对我来说，这种可以带着问题回去做第二版的节奏很有帮助。如果外部试玩的排期也能早一周定下来，留给小组验证的时间还会更充裕。",
+      "profile": {
+        "role": "design",
+        "tenure": "1-3y"
+      },
+      "tags": [
+        "project"
+      ],
+      "publishedAt": "2026-11-12",
+      "revision": 1
+    },
+    {
+      "schemaVersion": 1,
+      "id": "rv_01KADEV0000000000000000002",
+      "companyId": "c_cloudcape",
+      "projectId": "p_tidelight",
+      "score": 4,
+      "title": "跨组排期还能更早一些",
+      "comment": "小组能自己安排验证顺序，允许把不成立的想法撤掉。跨组借人偶尔确认得晚，关卡白盒做好后还得等资源。",
+      "profile": {
+        "role": "design",
+        "tenure": "3-5y"
+      },
+      "tags": [
+        "management"
+      ],
+      "publishedAt": "2026-10-16",
+      "revision": 1
+    },
+    {
+      "schemaVersion": 1,
+      "id": "rv_01KADEV0000000000000000003",
+      "companyId": "c_cloudcape",
+      "projectId": "p_windward",
+      "score": 5,
+      "title": "新人也能参与关卡回放",
+      "comment": "进组后跟着同事看了三次试玩录像，可以直接在时间轴上标出卡点。自己的第一份改动也能和旧版放在一起试玩，很容易知道改对了哪里。",
+      "profile": {
+        "role": "design",
+        "tenure": "1-3y"
+      },
+      "tags": [
+        "project"
+      ],
+      "publishedAt": "2026-09-21",
+      "revision": 1
+    },
+    {
+      "schemaVersion": 1,
+      "id": "rv_01KADEV0000000000000000004",
+      "companyId": "c_cloudcape",
+      "projectId": "p_windward",
+      "score": 4,
+      "title": "版本收尾有补休",
+      "comment": "版本前一起排值班表，上线后能排到补休。技术债的时间还不太稳定，希望下次能直接算进迭代。",
+      "profile": {
+        "role": "program",
+        "tenure": "1-3y"
+      },
+      "tags": [
+        "welfare"
+      ],
+      "publishedAt": "2026-08-18",
+      "revision": 1
+    }
+  ]
+}

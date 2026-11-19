@@ -1,0 +1,135 @@
+{
+  "schemaVersion": 1,
+  "generatedAt": "2026-11-19T00:00:00+08:00",
+  "totals": {
+    "companies": 4,
+    "projects": 6,
+    "reviews": 10
+  },
+  "companies": [
+    {
+      "id": "c_cloudcape",
+      "slug": "cloudcape",
+      "name": "云岬互动",
+      "aliases": [
+        "Cloudcape Interactive"
+      ],
+      "reviewCount": 4,
+      "avgScore": 4.5,
+      "scoreDistribution": {
+        "1": 0,
+        "2": 0,
+        "3": 0,
+        "4": 2,
+        "5": 2
+      },
+      "projectCount": 2,
+      "medianScore": 4.5,
+      "lastPublishedAt": "2026-11-12",
+      "topTags": [
+        {
+          "key": "project",
+          "count": 2
+        },
+        {
+          "key": "management",
+          "count": 1
+        },
+        {
+          "key": "welfare",
+          "count": 1
+        }
+      ]
+    },
+    {
+      "id": "c_wovenfield",
+      "slug": "wovenfield",
+      "name": "织野游戏",
+      "aliases": [
+        "Woven Field Games"
+      ],
+      "reviewCount": 3,
+      "avgScore": 3.7,
+      "scoreDistribution": {
+        "1": 0,
+        "2": 0,
+        "3": 1,
+        "4": 2,
+        "5": 0
+      },
+      "projectCount": 1,
+      "medianScore": 4,
+      "lastPublishedAt": "2026-11-15",
+      "topTags": [
+        {
+          "key": "project",
+          "count": 1
+        },
+        {
+          "key": "management",
+          "count": 1
+        },
+        {
+          "key": "overtime",
+          "count": 1
+        }
+      ]
+    },
+    {
+      "id": "c_glowharbor",
+      "slug": "glowharbor",
+      "name": "萤港工作室",
+      "aliases": [
+        "Glow Harbor Studio"
+      ],
+      "reviewCount": 2,
+      "avgScore": 4,
+      "scoreDistribution": {
+        "1": 0,
+        "2": 0,
+        "3": 0,
+        "4": 2,
+        "5": 0
+      },
+      "projectCount": 2,
+      "medianScore": 4,
+      "lastPublishedAt": "2026-11-07",
+      "topTags": [
+        {
+          "key": "project",
+          "count": 1
+        },
+        {
+          "key": "welfare",
+          "count": 1
+        }
+      ]
+    },
+    {
+      "id": "c_sandisle",
+      "slug": "sandisle",
+      "name": "砂屿数字",
+      "aliases": [
+        "Sand Isle Digital"
+      ],
+      "reviewCount": 1,
+      "avgScore": 3,
+      "scoreDistribution": {
+        "1": 0,
+        "2": 0,
+        "3": 1,
+        "4": 0,
+        "5": 0
+      },
+      "projectCount": 1,
+      "medianScore": 3,
+      "lastPublishedAt": "2026-10-29",
+      "topTags": [
+        {
+          "key": "management",
+          "count": 1
+        }
+      ]
+    }
+  ]
+}
