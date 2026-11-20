@@ -6,7 +6,7 @@
 
 - [x] `schema/review.schema.json`、`company.schema.json`、`taxonomy.schema.json`
 - [x] `data/taxonomy.json` 枚举字典
-- [x] 10 家公司、12 个项目、20 条样例评价迁移到 `data/`
+- [x] 10 家公司、12 个项目、20 条样例评价迁移到 `data/`（演示数据已移除，保留在 Git 历史）
 - [x] `scripts/validate.mjs`：结构、枚举、引用完整性、敏感字段与正则扫描
 - [x] `scripts/aggregate.mjs`：生成 `index.json`、`manifest.json`、`taxonomy.json`、`companies/{id}.json`
 - [ ] 用 ajv 替换手写校验（当前为零依赖实现，避免新增安装依赖）
@@ -61,7 +61,10 @@
 - [x] `data-validate.yml`
 - [x] `site-deploy.yml`
 - [x] 首次 `dev → main` 合并，控制台 `publicBranch` 已改回 `main`
-- [ ] 开启 Pages 并验证首次部署
+- [x] 移除 `data/companies` 与 `data/reviews` 中的演示数据
+- [x] 新增 `cloudflare-site.yml`，push main 时构建并自动部署到 `gdr-site`
+- [ ] 仓库主人添加 `CLOUDFLARE_API_TOKEN` / `CLOUDFLARE_ACCOUNT_ID` secrets，启用自动部署
+- [ ] 开启 GitHub Pages 并恢复 `site-deploy.yml` 的 push 触发
 - [ ] 配置 `main` / `dev` 分支保护与 CODEOWNERS 实际权限
 
 ## M5 上线加固
