@@ -88,7 +88,8 @@ async function proxy(req, res, url) {
     });
     res.end(payload);
   } catch (error) {
-    json(res, 502, { ok: false, message: `无法连接审核 API：${error.message}` });
+    const cause = error.cause?.message || error.cause?.code;
+    json(res, 502, { ok: false, message: `无法连接审核 API：${error.message}${cause ? `（${cause}）` : ''}` });
   }
 }
 
