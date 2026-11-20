@@ -7,7 +7,12 @@ export class ApiError extends Error {
   }
 }
 
-export function createApi(token, base = '/api/admin') {
+const LOCAL_HOSTS = new Set(['127.0.0.1', 'localhost', '::1']);
+const DEFAULT_BASE = LOCAL_HOSTS.has(location.hostname)
+  ? 'https://gdr-admin.pages.dev/api/admin'
+  : '/api/admin';
+
+export function createApi(token, base = DEFAULT_BASE) {
   if (!token) throw new Error('缺少登录凭证');
 
   async function request(path, { method = 'GET', body } = {}) {
