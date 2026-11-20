@@ -99,6 +99,8 @@ site/public/data/v1 ──► Astro 构建 ──► site/dist ──► GitHub 
 
 ## 数据维护
 
+首页按公司名、别名或项目名搜索，项目卡片链接至该项目的全部公开评价。推荐按数据生成日（北京时间）往前含当天 30 个自然日的好评数排序，4、5 星计为好评。同数时依次比较累计好评数、总评价数和最近评价日期。展示等级取自项目全部评价的好评比例与评价数量。项目场景图为虚构项目的演示素材。
+
 - 公司元数据与项目列表：`data/companies/{companyId}.json`
 - 单条已审核评价：`data/reviews/{companyId}/{reviewId}.json`
 - 枚举字典：`data/taxonomy.json`
@@ -165,6 +167,30 @@ npx wrangler pages deploy . --project-name gdr-admin --branch main
 ```
 
 审核控制台使用独立的 Pages 项目，`admin/functions/` 提供 `/api/admin/*` 接口。需要给该项目绑定 D1 变量 `DB`，并设置 `GITHUB_OWNER`、`GITHUB_REPO`（可选 `ADMIN_LOGINS`）。一期使用 `gdr-admin.pages.dev` 默认域名，后续接入自定义域名时再与问卷域隔离。凭据优先用 fine-grained PAT（Contents 读写）；如果控制台返回 403，再换 classic PAT（`repo` scope）。不要写入代码或提交到仓库。
+
+### 本地一键控制台
+
+仓库根目录双击 `start-admin.cmd`（需要 Node.js 18+）：
+
+1. 启动 `127.0.0.1:8787` 本地控制台并自动打开浏览器
+2. 把 `/api/admin/*` 代理到 `gdr-admin.pages.dev`，本地不保存任何服务端密钥
+3. 每位管理员粘贴自己的 GitHub PAT 登录
+
+通过审核后：
+
+- 数据提交到公开仓 `main`
+- 如果本机 `.secrets/cloudflare.env` 配置了 `CLOUDFLARE_API_TOKEN`，会自动从 `origin/main` 准备干净 worktree、构建并部署 `gdr-site`
+- 未配置 token 时只完成审核，不更新展示站；可稍后点「更新展示站」手动触发
+
+`.secrets/cloudflare.env`（仓库外）可选配置：
+
+```ini
+CLOUDFLARE_API_TOKEN=...
+CLOUDFLARE_ACCOUNT_ID=...
+GIT_PROXY=http://127.0.0.1:7897
+```
+
+`GIT_PROXY` 只在拉取 GitHub 需要代理时填写。
 
 ## 协作
 

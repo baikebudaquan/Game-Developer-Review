@@ -1,0 +1,49 @@
+---
+import { index, detail } from '../lib/data';
+import { duration } from '../lib/courier/game';
+import '../styles/courier.css';
+
+const reviewed = index.companies.filter(c => c.reviewCount > 0);
+const coveredProjects = reviewed.reduce((sum,c) => sum + detail(c.id).projects.filter(p =>
+  p.reviewCount > 0 && ['live','dev','cancelled'].includes(p.status)
+).length, 0);
+const milestones = [
+  { key: 'magnet', name: '磁力邮袋', effect: '经过手记附近就能收起它。', goal: '家公司已有评价', value: reviewed.length, target: 5, icon: '▣' },
+  { key: 'doubleJump', name: '二段跳', effect: '在空中再点一次，可以再跳一次。', goal: '个项目有评价且已标注项目状态', value: coveredProjects, target: 15, icon: '↑' },
+  { key: 'shield', name: '防撞封套', effect: '每局第一次撞到路障时保住手记。', goal: '家公司各有至少 3 条评价', value: reviewed.filter(c=>c.reviewCount>=3).length, target: 5, icon: '◇' },
+];
+const unlocked = milestones.filter(m=>m.value >= m.target);
+---
+<section class="arcade" data-courier data-powers={unlocked.map(m=>m.key).join(',')} aria-labelledby="arcade-title">
+  <div class="arcade-head">
+    <h2 id="arcade-title"><span class="mail-icon" aria-hidden="true">✉</span>夜班投递</h2>
+    <div class="readouts"><span>手记 <b data-pages>00</b></span><span>倒计时 <b data-time>{duration}</b>s</span></div>
+  </div>
+  <button type="button" class="playfield" data-field aria-label="开始投递。游戏中点按画面或按空格跳跃">
+    <canvas width="384" height="128" aria-hidden="true"></canvas>
+    <span class="arcade-notice" data-notice hidden></span>
+  </button>
+  <div class="arcade-controls">
+    <button class="play-action" data-action type="button">▶ 开始投递</button>
+    <button class="arcade-pause" data-pause type="button" hidden>暂停</button>
+    <button class="power-button" data-open type="button">全站能力 <b>{unlocked.length}/{milestones.length}</b> ↗</button>
+  </div>
+  <p class="game-guide" data-guide>点按或按空格跳过路障，把沿途的手记送到编辑部。</p>
+  <div class="office-line"><span class="office-windows" aria-hidden="true">{Array.from({length:6},()=> <i></i>)}</span><span data-office>本机投递 0 页</span><span class="office-goal" data-light>每 5 页点亮一盏编辑部的灯</span></div>
+  <output class="sr" data-announce aria-live="polite"></output>
+  <dialog class="power-dialog" aria-labelledby="power-title">
+    <div class="power-heading"><h2 id="power-title">全站投递能力</h2><button type="button" data-close aria-label="关闭能力面板">×</button></div>
+    <p>大家补充的公司和项目资料通过审核、更新到展示站后，会为所有玩家开启相应能力。</p>
+    <ul>{milestones.map(m=><li>
+      <span class="skill-icon" aria-hidden="true">{m.icon}</span>
+      <div><div class="skill-name"><strong>{m.name}</strong><span class:list={{active:m.value>=m.target}}>{m.value>=m.target ? '已解锁' : '未解锁'}</span></div>
+      <p>{m.effect}</p><div class="skill-meter"><i style={{width:Math.min(100,m.value/m.target*100)+'%'}}></i></div>
+      <small>{m.value} / {m.target} {m.goal}</small></div>
+    </li>)}</ul>
+  </dialog>
+</section>
+<script>
+  import { mountCourier } from '../lib/courier/controller';
+  const arcade = document.querySelector<HTMLElement>('[data-courier]');
+  if (arcade) mountCourier(arcade);
+</script>

@@ -27,6 +27,8 @@ const logoutButton = $('#logout-button');
 const userLabel = $('#user-label');
 const filterInput = $('#filter');
 const refreshButton = $('#refresh-button');
+const deployButton = $('#deploy-button');
+const localMode = ['127.0.0.1', 'localhost', '::1'].includes(location.hostname);
 const pendingList = $('#pending-list');
 const pendingCount = $('#pending-count');
 const detailEmpty = $('#detail-empty');
@@ -414,10 +416,22 @@ async function handleApprove(event) {
       throw new Error(`已写入公开仓 ${review.id}，但审核状态记录失败，请重试「通过并发布」。${error.message}`);
     }
 
+    let deployNote = '';
+    if (localMode) {
+      setStatus(detailStatus, '已通过，正在更新展示站…');
+      try {
+        const response = await fetch('/api/local/deploy', { method: 'POST' });
+        const data = await response.json().catch(() => ({}));
+        deployNote = data.ok ? '；展示站已更新' : `；展示站未更新：${data.message || `HTTP ${response.status}`}`;
+      } catch (error) {
+        deployNote = `；展示站未更新：${error.message}`;
+      }
+    }
+
     state.pending = state.pending.filter(entry => entry.id !== item.id);
     state.pendingTotal = Math.max(0, state.pendingTotal - 1);
     showEmptyDetail();
-    setStatus(globalStatus, `已发布 ${review.id} → ${review.companyId}`);
+    setStatus(globalStatus, `已发布 ${review.id} → ${review.companyId}${deployNote}`);
   } catch (error) {
     if (error.status === 401) {
       signOut('登录已失效，请重新登录。');
@@ -462,6 +476,25 @@ loginForm.addEventListener('submit', event => {
   event.preventDefault();
   signIn(tokenInput.value.trim());
 });
+
+async function deploySite() {
+  if (state.busy) return;
+  deployButton.disabled = true;
+  setStatus(globalStatus, '正在更新展示站…');
+  try {
+    const response = await fetch('/api/local/deploy', { method: 'POST' });
+    const data = await response.json().catch(() => ({}));
+    if (!response.ok || !data.ok) throw new Error(data.message || `HTTP ${response.status}`);
+    setStatus(globalStatus, '展示站已更新');
+  } catch (error) {
+    setStatus(globalStatus, `展示站未更新：${error.message}`, true);
+  } finally {
+    deployButton.disabled = false;
+  }
+}
+
+deployButton.hidden = !localMode;
+deployButton.addEventListener('click', deploySite);
 
 logoutButton.addEventListener('click', () => signOut());
 refreshButton.addEventListener('click', async () => {
