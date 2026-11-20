@@ -161,7 +161,9 @@ cd admin
 npx wrangler pages deploy . --project-name gdr-admin --branch main
 ```
 
-审核控制台使用独立的 Pages 项目，`admin/functions/` 提供 `/api/admin/*` 接口。需要给该项目绑定 D1 变量 `DB`，并设置 `GITHUB_OWNER`、`GITHUB_REPO`（可选 `ADMIN_LOGINS`）。一期使用 `gdr-admin.pages.dev` 默认域名，后续接入自定义域名时再与问卷域隔离。仓库主人用 fine-grained PAT；仓库协作者需要用 classic PAT（`repo` scope），因为 GitHub 不支持细粒度令牌写别人个人仓库。不要写入代码或提交到仓库。
+审核控制台使用独立的 Pages 项目，`admin/functions/` 提供 `/api/admin/*` 接口。需要给该项目绑定 D1 变量 `DB`，并设置 `GITHUB_OWNER`、`GITHUB_REPO`（可选 `ADMIN_LOGINS`）。一期使用 `gdr-admin.pages.dev` 默认域名，后续接入自定义域名时再与问卷域隔离。凭据优先用 fine-grained PAT（Contents 读写）；如果控制台返回 403，再换 classic PAT（`repo` scope）。不要写入代码或提交到仓库。
+
+> `main` 目前只有 Initial commit，所有数据和代码在 `dev` 上，因此 [admin/config.js](admin/config.js) 的 `publicBranch` 暂设为 `dev`。首次 `dev → main` 合并后改回 `main`。
 
 ## 协作
 
