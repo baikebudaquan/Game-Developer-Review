@@ -1,6 +1,6 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://github.com/baikebudaquan/Game-Developer-Review/schema/taxonomy.schema.json",
+  "$id": "https://github.com/bkbdq/Game-Developer-Review/schema/taxonomy.schema.json",
   "title": "枚举字典",
   "type": "object",
   "additionalProperties": false,

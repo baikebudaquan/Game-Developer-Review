@@ -1,5 +1,5 @@
 export const config = {
-  owner: 'baikebudaquan',
+  owner: 'bkbdq',
   publicRepo: 'Game-Developer-Review',
   publicBranch: 'main',
 
