@@ -1,7 +1,8 @@
 ---
 import Layout from '../../components/Layout.astro';
 import Mark from '../../components/Mark.astro';
-import { detail, index, href, taxonomy, scoreText, label, month } from '../../lib/data';
+import ReviewCard from '../../components/ReviewCard.astro';
+import { detail, index, href, taxonomy, scoreText, label } from '../../lib/data';
 import type { ProfileKey } from '../../lib/data';
 export function getStaticPaths() {
   return index.companies.map(c => ({ params: { slug: c.slug }, props: { data: detail(c.id) } }));
@@ -20,7 +21,7 @@ const roles = filterItems('role'), tenures = filterItems('tenure');
 const statuses:Record<string,string> = {live:'已上线',dev:'在研',cancelled:'已取消',unknown:'状态未知'};
 ---
 <Layout title={company.name}>
-  <nav class="crumb" aria-label="面包屑"><a href={href()}>公司目录</a><span> / </span>{company.name}</nav>
+  <nav class="crumb" aria-label="面包屑"><a href={href('companies/')}>公司目录</a><span> / </span>{company.name}</nav>
   <section class="identity panel">
     <Mark slug={company.slug}/><div><h1>{company.name}</h1>{company.aliases?.length > 0 && <p>{company.aliases.join(' · ')}</p>}</div>
     <div class="big-score"><span>综合评分</span><strong>{scoreText(company.avgScore)}<small> / 5</small></strong><span>{company.reviewCount} 条评价</span></div>
@@ -42,13 +43,7 @@ const statuses:Record<string,string> = {live:'已上线',dev:'在研',cancelled:
         <label>司龄<select id="tenure"><option value="">全部司龄</option>{taxonomy.tenures.filter(x=>tenures.has(x.key)).map(x=><option value={x.key}>{x.label}</option>)}</select></label>
       </div>
       <div class="reviews">
-        {ordered.map(r=><article class="panel review" data-project={r.projectId || ''} data-role={r.profile?.role || ''} data-tenure={r.profile?.tenure || ''}>
-          <div class="review-line"><span class="review-score"><i aria-hidden="true">★</i> {r.score} 分</span><time datetime={r.publishedAt.slice(0,7)}>{month(r.publishedAt)}</time></div>
-          {r.title && <h3>{r.title}</h3>}
-          {r.comment.length>140 ? <details><summary><span class="excerpt">{r.comment.slice(0,120)}… <em>展开全文</em></span><em class="collapse">收起全文</em></summary><p>{r.comment}</p></details> : <p>{r.comment}</p>}
-          <div class="review-meta">{[projects.find(p=>p.id===r.projectId)?.name, label(taxonomy.roles,r.profile?.role), label(taxonomy.tenures,r.profile?.tenure)].filter(Boolean).join(' · ')}</div>
-          {!!r.tags?.length && <div class="chips">{r.tags.map(t=><span>{label(taxonomy.tags,t)}</span>)}</div>}
-        </article>)}
+        {ordered.map(r=><ReviewCard review={r} projectName={projects.find(p=>p.id===r.projectId)?.name}/>)}
       </div>
       <div class="empty" id="no-reviews" hidden={reviews.length>0}><strong>{reviews.length ? '没有符合这些条件的评价' : '暂无公开评价'}</strong>{reviews.length>0 && <button id="reset" type="button">清除筛选</button>}</div>
     </section>

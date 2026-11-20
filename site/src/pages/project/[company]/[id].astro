@@ -1,0 +1,24 @@
+---
+import Layout from '../../../components/Layout.astro';
+import ProjectCover from '../../../components/ProjectCover.astro';
+import ReviewCard from '../../../components/ReviewCard.astro';
+import { projects } from '../../../lib/projects';
+import { href } from '../../../lib/data';
+export function getStaticPaths() {
+  return projects.map(p=>({params:{company:p.slug,id:p.id},props:{project:p}}));
+}
+const { project:p }=Astro.props;
+---
+<Layout title={p.name} active="projects" dark>
+  <nav class="project-crumb" aria-label="面包屑"><a href={href()}>项目发现</a> / <a href={href('company/'+p.slug+'/')}>{p.company}</a> / {p.name}</nav>
+  <header class="project-mast"><ProjectCover project={p} eager/><div>
+    <a class="studio-link" href={href('company/'+p.slug+'/')}>{p.company} ↗</a>
+    <h1>{p.name}</h1><span class="project-state">{p.status}</span>
+    <div class="feature-grade"><b class:list={['grade',{neutral:p.ratio<.7}]}>{p.grade}</b><span>（{p.count} 篇评价）</span></div>
+    <p>近 30 天 {p.recentPositive} 篇好评{p.count>0 && ` · 总好评率 ${Math.round(p.ratio*100)}%`}</p>
+  </div></header>
+  <section class="project-reviews" aria-labelledby="project-reviews"><div class="discovery-section-head"><h2 id="project-reviews"><i aria-hidden="true"></i>全部项目评价<small>{p.count}</small></h2></div>
+    {p.reviews.map(r=><ReviewCard review={r} verdict/>)}
+    {p.count===0 && <p class="project-empty">这个项目暂时还没有公开评价。</p>}
+  </section>
+</Layout>

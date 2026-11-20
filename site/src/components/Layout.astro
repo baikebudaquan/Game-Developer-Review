@@ -1,24 +1,25 @@
 ---
 import '../styles/site.css';
-import Mark from './Mark.astro';
+import '../styles/discovery.css';
 import { href, isDemo } from '../lib/data';
-const { title } = Astro.props;
+const { title, active = 'companies', dark = false } = Astro.props;
+const routes = [['projects','','项目发现'],['companies','companies/','公司目录'],['arcade','arcade/','夜班投递']];
 ---
 <!doctype html>
 <html lang="zh-CN">
   <head>
     <meta charset="utf-8" /><meta name="viewport" content="width=device-width,initial-scale=1" />
     <meta name="theme-color" content="#17192c" />
-    <title>{title} · 开发者手记</title>
+    <title>{title} · Good Company</title>
   </head>
-  <body>
+  <body class:list={{'discovery-theme':dark}}>
     <a class="skip" href="#content">跳到正文</a>
     <header class="topbar"><div class="shell bar-inner">
-      <a class="brand" href={href()}><Mark />开发者手记</a>
-      <nav aria-label="主导航"><a class="nav-link" href={href()}>公司目录</a></nav>
+      <a class="brand" href={href()}><span class="gc-logo" aria-hidden="true"><i></i><i></i></span>Good Company</a>
+      <nav aria-label="主导航">{routes.map(([key,path,text])=><a class="nav-link" aria-current={active===key?'page':undefined} href={href(path)}>{text}</a>)}</nav>
       {isDemo && <span class="demo"><i></i>本地演示</span>}
     </div></header>
     <main id="content" class="shell"><slot /></main>
-    <footer class="shell footer"><span>开发者手记</span><span>{isDemo ? '本地演示 · 公司、项目与评价均为虚构' : '游戏行业匿名评价'}</span></footer>
+    <footer class="shell footer"><span>Good Company</span><span>{isDemo ? '本地演示 · 公司、项目与评价均为虚构' : '游戏行业匿名评价'}</span></footer>
   </body>
 </html>
