@@ -21,7 +21,8 @@
           "id": { "type": "string", "pattern": "^p_[a-z0-9_-]+$" },
           "name": { "type": "string", "minLength": 1, "maxLength": 50 },
           "status": { "enum": ["live", "dev", "cancelled", "unknown"] },
-          "genre": { "type": "string" }
+          "genre": { "type": "string" },
+          "featuredReviewId": { "type": "string", "pattern": "^rv_[A-Za-z0-9]+$" }
         }
       }
     },

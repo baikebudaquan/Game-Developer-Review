@@ -70,7 +70,7 @@ function topTags(reviews) {
 }
 
 function byProfile(reviews) {
-  const dims = ['role', 'tenure', 'employment', 'city'];
+  const dims = ['tenure', 'employment', 'city'];
   return Object.fromEntries(dims.map(dim => {
     const groups = new Map();
     reviews.forEach(review => {
@@ -110,6 +110,7 @@ function buildDetail(company) {
         id: project.id,
         name: project.name,
         status: project.status,
+        ...(project.featuredReviewId && { featuredReviewId: project.featuredReviewId }),
         reviewCount: projectScores.length,
         avgScore: avg(projectScores),
       };

@@ -18,7 +18,7 @@ export interface Review {
 }
 export interface Detail {
   company: Company;
-  projects: { id: string; name: string; status: string; reviewCount: number; avgScore: number | null }[];
+  projects: { id: string; name: string; status: string; featuredReviewId?: string; reviewCount: number; avgScore: number | null }[];
   byProfile: Partial<Record<ProfileKey, { key: string; count: number; avgScore: number }[]>>;
   reviews: Review[];
 }

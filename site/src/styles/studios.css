@@ -23,9 +23,12 @@
 .studio-award > img { position:absolute; z-index:-2; inset:0 0 0 auto; width:76%; height:100%; object-fit:cover; }
 .studio-award::before { content:''; position:absolute; z-index:-1; inset:0; background:linear-gradient(95deg,#122a38 12%,#122a38ee 37%,#142c3d99 68%,#142c3d29); }
 .award-content { padding:20px 24px; }
-.award-content h2 { display:flex; align-items:baseline; gap:8px; color:#94e1e5; font-size:16px; }
-.award-rank { color:#daeff0; font:italic 700 19px/1 Georgia,serif; }
-.award-content small { color:#cad8e0; font-size:12px; }
+.award-content h2 { display:flex; width:fit-content; align-items:baseline; gap:8px; padding:5px 12px; background:#a5e7e1; color:#123338; border-radius:3px; font-size:20px; line-height:1.25; }
+.studio-award:nth-child(2) .award-content h2 { background:#f3d28f; color:#3e3017; }
+.award-rank { font:italic 700 18px/1 Georgia,serif; }
+.award-content small { display:block; margin-top:6px; color:#cad8e0; font-size:12px; }
+.studio-back { margin:20px 0 14px; }
+.studio-back .review-cta { min-height:40px; padding:8px 15px; font-size:15px; }
 .award-winner { display:flex; align-items:center; gap:12px; width:fit-content; max-width:100%; margin:16px 0 10px; font-size:clamp(20px,2vw,28px); line-height:1.2; }
 .award-winner strong { overflow-wrap:anywhere; }
 .award-winner > span:last-child { color:#acdfe3; font-size:16px; }
