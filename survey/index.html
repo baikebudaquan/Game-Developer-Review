@@ -1,0 +1,158 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="robots" content="noindex, nofollow">
+  <title>游戏行业匿名评价</title>
+  <link rel="stylesheet" href="/style.css">
+</head>
+<body data-fallback-email="review@example.com">
+  <header class="site-header">
+    <strong>游戏行业匿名评价</strong>
+    <span>审核后才会公开展示</span>
+  </header>
+
+  <main>
+    <section class="intro">
+      <h1>说说你待过的游戏公司</h1>
+      <p>所有字段由你自愿填写，不收集姓名、邮箱、手机号或账号。提交后进入人工审核，审核通过才会以匿名形式展示。</p>
+    </section>
+
+    <div id="draft-note" class="notice" hidden>已恢复上次未完成的内容。</div>
+
+    <form id="submit-form" action="/api/submit" method="post">
+      <div class="field">
+        <label for="company">公司名 <em>必填</em></label>
+        <input id="company" name="company" type="text" maxlength="50" autocomplete="organization" required>
+      </div>
+
+      <div class="field">
+        <label for="project">项目名</label>
+        <input id="project" name="project" type="text" maxlength="50" autocomplete="off">
+      </div>
+
+      <div class="field">
+        <label for="score">综合评分 <em>必填</em></label>
+        <select id="score" name="score" required>
+          <option value="">请选择</option>
+          <option value="5">5 星 · 非常推荐</option>
+          <option value="4">4 星 · 还不错</option>
+          <option value="3">3 星 · 一般</option>
+          <option value="2">2 星 · 不太行</option>
+          <option value="1">1 星 · 不推荐</option>
+        </select>
+      </div>
+
+      <div class="field">
+        <label for="comment">评价正文 <em>必填</em></label>
+        <textarea id="comment" name="comment" rows="6" maxlength="2000" required placeholder="只写事实与感受，不写真实姓名、联系方式和未公开的内部代号。"></textarea>
+        <small>最多 2000 字，最多两个链接。</small>
+      </div>
+
+      <div class="field">
+        <label for="wish">希望被吐槽的内容</label>
+        <textarea id="wish" name="wish" rows="2" maxlength="500" placeholder="选填"></textarea>
+      </div>
+
+      <fieldset class="field profile">
+        <legend>你的画像（选填）</legend>
+        <div class="grid">
+          <label>岗位
+            <select name="role">
+              <option value="">不填</option>
+              <option value="design">策划</option>
+              <option value="program">程序</option>
+              <option value="art">美术</option>
+              <option value="audio">音频</option>
+              <option value="ops">运营</option>
+              <option value="qa">测试</option>
+              <option value="pm">项目管理</option>
+              <option value="other">其他</option>
+            </select>
+          </label>
+          <label>司龄
+            <select name="tenure">
+              <option value="">不填</option>
+              <option value="lt1y">1 年以内</option>
+              <option value="1-3y">1–3 年</option>
+              <option value="3-5y">3–5 年</option>
+              <option value="gt5y">5 年以上</option>
+            </select>
+          </label>
+          <label>状态
+            <select name="employment">
+              <option value="">不填</option>
+              <option value="current">在职</option>
+              <option value="former">已离职</option>
+              <option value="intern">实习</option>
+            </select>
+          </label>
+          <label>城市
+            <select name="city">
+              <option value="">不填</option>
+              <option value="beijing">北京</option>
+              <option value="shanghai">上海</option>
+              <option value="guangzhou">广州</option>
+              <option value="shenzhen">深圳</option>
+              <option value="chengdu">成都</option>
+              <option value="hangzhou">杭州</option>
+              <option value="other">其他</option>
+            </select>
+          </label>
+        </div>
+      </fieldset>
+
+      <label class="consent">
+        <input type="checkbox" name="consent" required>
+        我确认内容为个人真实经历与感受，不含真实姓名、联系方式、身份证号或未公开的商业秘密。
+      </label>
+
+      <div class="hp" aria-hidden="true">
+        <label>网址 <input type="text" name="website" tabindex="-1" autocomplete="off"></label>
+      </div>
+
+      <input type="hidden" name="submissionId" id="submissionId">
+      <input type="hidden" name="challenge" id="challenge">
+      <input type="hidden" name="nonce" id="nonce">
+      <input type="hidden" name="elapsed" id="elapsed">
+      <input type="hidden" name="js" id="js-flag">
+
+      <div class="actions">
+        <button type="submit" id="submit-button">提交</button>
+        <button type="button" id="cancel-button" hidden>取消等待</button>
+      </div>
+      <p class="status" id="status" role="status" aria-live="polite"></p>
+    </form>
+
+    <section id="success-panel" class="panel" hidden>
+      <h2>提交成功</h2>
+      <p>回执编号：<code id="receipt"></code></p>
+      <p>内容将在人工审核后展示。请保存回执编号，便于后续查询或删除。</p>
+      <button type="button" id="again-button">再提交一条</button>
+    </section>
+
+    <section id="fallback-panel" class="panel" hidden>
+      <h2>提交未完成</h2>
+      <p>网络似乎不太稳定，内容已保存在本机。你可以复制后通过邮件发送，或稍后重试。</p>
+      <div class="actions">
+        <button type="button" id="copy-button">复制内容</button>
+        <a id="mail-link" class="button" href="mailto:review@example.com">邮件提交</a>
+        <button type="button" id="retry-button">重新提交</button>
+        <button type="button" id="delete-button" class="ghost">删除本地副本</button>
+      </div>
+      <p class="status" id="fallback-status" role="status" aria-live="polite"></p>
+    </section>
+
+    <noscript>
+      <p class="notice">当前环境未启用脚本。表单仍可直接提交，提交后会显示回执页。</p>
+    </noscript>
+  </main>
+
+  <footer>
+    <p>不收集姓名、邮箱、手机号；IP 仅以加盐哈希形式短期保存，用于防刷。</p>
+  </footer>
+
+  <script type="module" src="/app.js"></script>
+</body>
+</html>

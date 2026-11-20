@@ -24,12 +24,19 @@
 
 ## M2 提交链路
 
+- [x] 问卷页 `survey/`：原生表单 + JS 增强、本地暂存、超时 / 重试 / 兜底
+- [x] `POST /api/submit` Pages Function：大小 / 长度校验、蜜罐、PoW、限流、幂等
+- [x] D1 表结构与 `pending_sync` 写入
+- [x] Cron Worker：同步到私有仓、指数退避、失败重试
+- [x] 零依赖测试脚本 `scripts/test-m2.mjs`
 - [ ] 新建私有暂存仓 `Game-Developer-Review-staging`
-- [ ] 问卷页 `survey/`：原生表单 + JS 增强、本地暂存、双端点重试
-- [ ] `POST /api/submit` Pages Function：大小 / 长度校验、蜜罐、PoW、限流、幂等
-- [ ] D1 表结构与 `pending_sync` 写入
-- [ ] Cron Worker：同步到私有仓、指数退避、失败告警
+- [ ] 在 Cloudflare 创建 D1、执行迁移并绑定 Pages 项目
 - [ ] 问卷页部署到 Cloudflare Pages 并绑定自定义域名
+- [ ] PoW 挑战改为服务端签发（当前由客户端生成，仅防脚本误提交）
+- [ ] 客户端 PoW 难度与服务端 `POW_DIFFICULTY` 联动
+- [ ] 备用境外提交端点（Deno Deploy / Fly.io / Vercel）
+- [ ] 同步失败告警（邮件或 webhook）
+- [ ] 过期数据清理任务（D1、`ipHash`、`rejected`）
 
 ## M3 审核控制台
 

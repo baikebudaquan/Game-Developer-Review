@@ -1,0 +1,16 @@
+name = "gdr-sync-worker"
+main = "index.js"
+compatibility_date = "2026-11-20"
+
+[triggers]
+crons = ["*/2 * * * *"]
+
+[vars]
+GITHUB_OWNER = "baikebudaquan"
+GITHUB_REPO = "Game-Developer-Review-staging"
+GITHUB_BRANCH = "main"
+
+[[d1_databases]]
+binding = "DB"
+database_name = "game-developer-review"
+database_id = "REPLACE_WITH_D1_DATABASE_ID"
