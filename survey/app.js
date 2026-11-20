@@ -142,8 +142,13 @@ function buildText() {
 }
 
 function updateMailLink() {
-  const email = document.body.dataset.fallbackEmail || 'review@example.com';
+  const email = document.body.dataset.fallbackEmail || '';
+  if (!email) {
+    mailLink.hidden = true;
+    return;
+  }
   const subject = encodeURIComponent('游戏行业匿名评价提交');
+  mailLink.hidden = false;
   mailLink.href = `mailto:${email}?subject=${subject}&body=${encodeURIComponent(buildText())}`;
 }
 

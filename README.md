@@ -12,8 +12,8 @@
 | --- | --- | --- |
 | M0 | 数据契约、示例数据、校验与聚合脚本 | 已完成 |
 | M1 | 展示站骨架（列表 / 详情 / 筛选） | 已完成（使用虚构样例数据） |
-| M2 | 提交链路（Worker + D1 + 私有暂存仓） | 代码骨架完成，待 Cloudflare 部署 |
-| M3 | 审核控制台 | 代码骨架完成，待真实 token 联调 |
+| M2 | 提交链路（Pages Function + D1） | 已部署到 `gdr-survey.pages.dev`，提交链路已验证 |
+| M3 | 审核控制台 | 已部署到 `gdr-admin.pages.dev`，待管理员 PAT 联调 |
 | M4 | 发布管线 | 部分完成（CI 已就位） |
 | M5 | 上线加固 | 未开始 |
 
@@ -42,11 +42,11 @@ Game-Developer-Review/
 │  ├─ style.css
 │  └─ migrations/
 ├─ functions/api/submit.js     # Cloudflare Pages Function
-├─ worker/                     # D1 → 私有仓 Cron Worker
-├─ admin/                      # 审核控制台（静态 SPA）
+├─ admin/                      # 审核控制台（静态 SPA + Pages Functions API）
 │  ├─ index.html
 │  ├─ app.js
-│  └─ lib/
+│  ├─ lib/
+│  └─ functions/api/admin/     # 登录校验、待审列表、通过、拒绝
 ├─ site/                       # Astro 展示站源码
 │  ├─ src/
 │  └─ public/                  # 生成数据写入 public/data/v1
@@ -111,8 +111,7 @@ site/public/data/v1 ──► Astro 构建 ──► site/dist ──► GitHub 
 
 - `survey/`：原生表单 + JS 增强，15 秒总预算、5 秒单次超时、3 秒慢网提示、取消等待、本地草稿保留 7 天、复制 / 邮件兜底
 - `POST /api/submit`：urlencoded 与 JSON 双通道、16 KB 限制、字段校验、蜜罐、PoW、IP 哈希限流、24 小时内容去重、幂等写入
-- D1 `submissions` 表：`pending_sync` / `synced` / `failed`，含重试退避字段
-- Cron Worker：每 2 分钟把待同步提交写入私有仓，指数退避，最多 8 次
+- D1 `submissions` 表：`pending` / `approved` / `rejected`，审核字段与 `audit_log` 审计表
 
 本地逻辑验证：
 
@@ -122,42 +121,31 @@ npm run test:m2
 
 部署步骤：
 
-1. 创建私有仓 `Game-Developer-Review-staging`，并准备仅有该仓 `Contents: Read and write` 权限的 fine-grained PAT。
-2. 创建 D1 并执行迁移：
+1. 复用已有 D1 `goodcompany`，执行迁移：
 
 ```sh
-npx wrangler d1 create game-developer-review
-npx wrangler d1 execute game-developer-review --remote --file survey/migrations/0001_submissions.sql
+npx wrangler d1 execute goodcompany --remote --file survey/migrations/0001_submissions.sql
 ```
 
-3. 把返回的 `database_id` 填入 [worker/wrangler.toml](worker/wrangler.toml)。
-4. 创建 Cloudflare Pages 项目，构建根目录为仓库根，静态目录为 `survey`，Functions 使用根目录 `functions/`；绑定 D1 变量 `DB`。
-5. 配置 Pages 环境变量：`IP_SALT`（密钥）、`ALLOWED_ORIGINS`（问卷域名）、`POW_DIFFICULTY=3`。
-6. 部署问卷：
+2. 创建 Cloudflare Pages 项目 `gdr-survey`，构建根目录为仓库根，静态目录为 `survey`，Functions 自动使用根目录 `functions/`；绑定 D1 变量 `DB`。
+3. 配置 Pages 环境变量：`IP_SALT`（密钥）、`ALLOWED_ORIGINS`（问卷访问域名）、`POW_DIFFICULTY=3`。
+4. 部署问卷：
 
 ```sh
-npx wrangler pages deploy survey --project-name <PAGES_PROJECT>
+npx wrangler pages deploy survey --project-name gdr-survey --branch main
 ```
 
-7. 配置并部署 Worker：
-
-```sh
-npx wrangler secret put GITHUB_TOKEN -c worker/wrangler.toml
-npx wrangler deploy -c worker/wrangler.toml
-```
-
-8. 把 [survey/index.html](survey/index.html) 中的 `data-fallback-email` 与 `mailto:` 占位地址替换为真实收件地址。
+5. 如需邮件兜底，把 [survey/index.html](survey/index.html) 的 `data-fallback-email` 填成真实邮箱；留空时隐藏「邮件提交」按钮，「复制内容」仍可用。
 
 ## M3 审核控制台（骨架）
 
 已实现：
 
-- PAT 登录，token 仅存 `sessionStorage`；登录时校验两个仓库的写权限与可选登录名白名单
-- 待审列表：递归读取私有仓 `submissions/pending/`，支持搜索与风控标记展示
+- PAT 登录：token 仅存 `sessionStorage`，由控制台 API 服务端校验身份与数据仓写权限，可选 `ADMIN_LOGINS` 白名单
+- 待审列表：读取 D1 中 `pending` 提交，支持搜索与风控标记展示
 - 详情编辑：公司匹配 / 新建、项目匹配 / 新建、脱敏修改正文、标签与画像
-- 通过：Git Data API 一次提交 review 与 company 文件，409 冲突自动重试；随后删除 pending 文件并写审计
-- 拒绝：移入 `submissions/rejected/` 并记录原因，同时写审计
-- 审计：追加到 `audit/{yyyy}-{mm}.jsonl`，不含评价正文
+- 通过：Git Data API 一次提交 review 与 company 文件到公开仓，再标记 D1 状态为 `approved`
+- 拒绝：写 D1 `rejected` 与拒绝原因，同时写 `audit_log`
 - 配置集中在 [admin/config.js](admin/config.js)，登录页已带 `noindex` 与 CSP
 
 本地逻辑验证：
@@ -169,10 +157,11 @@ npm run test:m3
 部署：
 
 ```sh
-npx wrangler pages deploy admin --project-name <ADMIN_PROJECT>
+cd admin
+npx wrangler pages deploy . --project-name gdr-admin --branch main
 ```
 
-建议使用独立子域（如 `admin.example.com`），与问卷域隔离 token。token 需要两个仓库的 `Contents: Read and write` 权限；不要写入代码或提交到仓库。上线前把管理员 GitHub 登录名填入 `config.allowedLogins`，为空时只校验仓库权限。
+审核控制台使用独立的 Pages 项目，`admin/functions/` 提供 `/api/admin/*` 接口。需要给该项目绑定 D1 变量 `DB`，并设置 `GITHUB_OWNER`、`GITHUB_REPO`（可选 `ADMIN_LOGINS`）。一期使用 `gdr-admin.pages.dev` 默认域名，后续接入自定义域名时再与问卷域隔离。凭据优先用 fine-grained PAT（Contents 读写）；如果控制台返回 403，再换 classic PAT（`repo` scope）。不要写入代码或提交到仓库。
 
 ## 协作
 

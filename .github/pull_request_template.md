@@ -15,7 +15,7 @@
 <!-- 勾选本次改动涉及的范围，一个 PR 只应涉及一个系统 -->
 
 - [ ] site（展示站）
-- [ ] survey（问卷 / 提交 API / Worker）
+- [ ] survey（问卷 / 提交 API）
 - [ ] admin（审核控制台）
 - [ ] schema / data（数据契约、数据文件）
 - [ ] ci / docs（构建、CI、文档）

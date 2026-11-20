@@ -26,27 +26,29 @@
 
 - [x] 问卷页 `survey/`：原生表单 + JS 增强、本地暂存、超时 / 重试 / 兜底
 - [x] `POST /api/submit` Pages Function：大小 / 长度校验、蜜罐、PoW、限流、幂等
-- [x] D1 表结构与 `pending_sync` 写入
-- [x] Cron Worker：同步到私有仓、指数退避、失败重试
+- [x] D1 表结构与 `pending` 写入
+- [x] 审核状态机（`pending` → `approved` / `rejected`）与 `audit_log` 表
 - [x] 零依赖测试脚本 `scripts/test-m2.mjs`
-- [ ] 新建私有暂存仓 `Game-Developer-Review-staging`
-- [ ] 在 Cloudflare 创建 D1、执行迁移并绑定 Pages 项目
-- [ ] 问卷页部署到 Cloudflare Pages 并绑定自定义域名
+- [x] 复用 D1 `goodcompany` 并执行迁移
+- [x] 创建 `gdr-survey` / `gdr-admin` 两个 Pages 项目并绑定 D1
+- [x] 问卷页部署到 Cloudflare Pages（`gdr-survey.pages.dev`）
+- [ ] 接入自定义域名（免费版不能单独托管子域，方案待定）
+- [ ] 填写问卷兜底收件邮箱
 - [ ] PoW 挑战改为服务端签发（当前由客户端生成，仅防脚本误提交）
 - [ ] 客户端 PoW 难度与服务端 `POW_DIFFICULTY` 联动
 - [ ] 备用境外提交端点（Deno Deploy / Fly.io / Vercel）
-- [ ] 同步失败告警（邮件或 webhook）
-- [ ] 过期数据清理任务（D1、`ipHash`、`rejected`）
+- [ ] D1 导出备份与过期数据清理任务（`ipHash`、已发布提交）
 
 ## M3 审核控制台
 
-- [x] `admin/` 静态 SPA 与管理员登录（PAT、sessionStorage、白名单）
+- [x] `admin/` 静态 SPA 与管理员登录（PAT、sessionStorage、服务端权限校验）
+- [x] 控制台 Pages Functions API：登录校验、待审列表、通过、拒绝、审计
 - [x] 待审列表、详情、公司 / 项目匹配、脱敏编辑
-- [x] 通过：Git Data API 单次原子提交到公开仓
-- [x] 拒绝：移入 `rejected/` 并记录原因
-- [x] 审计日志 `audit/{yyyy}-{mm}.jsonl`
+- [x] 通过：Git Data API 单次原子提交到公开仓，并标记 D1 为 `approved`
+- [x] 拒绝：标记 D1 为 `rejected` 并记录原因
+- [x] 审计日志写入 D1 `audit_log`
 - [ ] GitHub OAuth Device Flow 登录（替代手动粘贴 PAT）
-- [ ] 控制台部署到独立子域并与真实 token 联调
+- [ ] 控制台部署后与真实 token 联调（`gdr-admin.pages.dev`）
 - [ ] 批量通过（仅限已匹配公司且无敏感词命中）
 - [ ] 敏感词 / 正则扫描（手机号、身份证、邮箱、常见人名）
 - [ ] 相似文本重复提示（余弦 / 编辑距离）
@@ -58,6 +60,7 @@
 
 - [x] `data-validate.yml`
 - [x] `site-deploy.yml`
+- [x] 首次 `dev → main` 合并，控制台 `publicBranch` 已改回 `main`
 - [ ] 开启 Pages 并验证首次部署
 - [ ] 配置 `main` / `dev` 分支保护与 CODEOWNERS 实际权限
 

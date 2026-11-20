@@ -124,8 +124,8 @@ export async function onRequestPost({ request, env }) {
   };
 
   await env.DB.prepare(
-    `INSERT INTO submissions (id, payload, status, flags, ip_hash, dedupe_hash, created_at, next_attempt_at)
-     VALUES (?, ?, 'pending_sync', ?, ?, ?, ?, ?)
+    `INSERT INTO submissions (id, payload, status, flags, ip_hash, dedupe_hash, created_at)
+     VALUES (?, ?, 'pending', ?, ?, ?, ?)
      ON CONFLICT(id) DO NOTHING`,
   ).bind(
     input.submissionId,
@@ -133,7 +133,6 @@ export async function onRequestPost({ request, env }) {
     result.flags.join(','),
     ipHash,
     fingerprint,
-    submittedAt,
     submittedAt,
   ).run();
 

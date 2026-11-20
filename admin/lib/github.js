@@ -19,10 +19,6 @@ function bytesToBinary(bytes) {
   return binary;
 }
 
-export function encodeBase64(text) {
-  return btoa(bytesToBinary(new TextEncoder().encode(text)));
-}
-
 export function decodeBase64(value) {
   const binary = atob((value || '').replace(/\s+/g, ''));
   return new TextDecoder().decode(Uint8Array.from(binary, char => char.charCodeAt(0)));
@@ -57,8 +53,6 @@ export function createClient(token, fetchImpl = fetch) {
 
   return {
     request,
-    getUser: () => request('/user'),
-    getRepo: (owner, repo) => request(`/repos/${owner}/${repo}`),
     getTree: (owner, repo, ref) => request(`/repos/${owner}/${repo}/git/trees/${encodeURIComponent(ref)}?recursive=1`),
     async getFile(owner, repo, path, ref) {
       try {
@@ -80,13 +74,5 @@ export function createClient(token, fetchImpl = fetch) {
     patchRef: (owner, repo, branch, sha) => request(`/repos/${owner}/${repo}/git/refs/heads/${encodeURIComponent(branch)}`, {
       method: 'PATCH', body: { sha, force: false },
     }),
-    putFile: (owner, repo, path, { message, content, sha, branch }) => request(
-      `/repos/${owner}/${repo}/contents/${encodePath(path)}`,
-      { method: 'PUT', body: { message, content: encodeBase64(content), branch, ...(sha ? { sha } : {}) } },
-    ),
-    deleteFile: (owner, repo, path, { message, sha, branch }) => request(
-      `/repos/${owner}/${repo}/contents/${encodePath(path)}`,
-      { method: 'DELETE', body: { message, sha, branch } },
-    ),
   };
 }

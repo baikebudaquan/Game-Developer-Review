@@ -1,28 +1,3 @@
-import { auditEntry, rejectedPath } from './review.js';
-
-async function appendAudit(client, config, line) {
-  const { owner, stagingRepo, stagingBranch, auditDir } = config;
-  const month = new Date().toISOString().slice(0, 7);
-  const path = `${auditDir}/${month}.jsonl`;
-
-  for (let attempt = 0; attempt < 2; attempt += 1) {
-    const existing = await client.getFile(owner, stagingRepo, path, stagingBranch);
-    const content = (existing?.content || '') + line + '\n';
-    try {
-      await client.putFile(owner, stagingRepo, path, {
-        message: 'audit: append review action',
-        content,
-        sha: existing?.sha,
-        branch: stagingBranch,
-      });
-      return;
-    } catch (error) {
-      if (error.status === 409 && attempt === 0) continue;
-      throw error;
-    }
-  }
-}
-
 async function commitPublish(client, config, { review, company, reviewPath, companyPath }) {
   const { owner, publicRepo, publicBranch } = config;
   const ref = await client.getRef(owner, publicRepo, publicBranch);
@@ -46,8 +21,11 @@ async function commitPublish(client, config, { review, company, reviewPath, comp
   await client.patchRef(owner, publicRepo, publicBranch, commit.sha);
 }
 
-export async function publishReview({ client, config, submission, review, company, pendingPath, pendingSha, reviewer }) {
-  const { owner, publicRepo, publicBranch, stagingRepo, stagingBranch, reviewsDir, companiesDir } = config;
+/**
+ * 把审核结果原子写入公开仓。重复调用时以 reviewId 判断是否已写入，可安全重试。
+ */
+export async function publishReview({ client, config, review, company }) {
+  const { owner, publicRepo, publicBranch, reviewsDir, companiesDir } = config;
   const reviewPath = `${reviewsDir}/${review.companyId}/${review.id}.json`;
   const companyPath = `${companiesDir}/${review.companyId}.json`;
   const existing = await client.getFile(owner, publicRepo, reviewPath, publicBranch);
@@ -66,61 +44,5 @@ export async function publishReview({ client, config, submission, review, compan
     }
   }
 
-  try {
-    await client.deleteFile(owner, stagingRepo, pendingPath, {
-      message: `data: publish ${review.id}`,
-      sha: pendingSha,
-      branch: stagingBranch,
-    });
-  } catch (error) {
-    if (error.status !== 404) throw error;
-  }
-
-  await appendAudit(client, config, auditEntry({
-    action: 'approve',
-    reviewer,
-    submissionId: submission.submissionId,
-    reviewId: review.id,
-    companyId: review.companyId,
-    projectId: review.projectId,
-  }));
-
   return { reviewPath, companyPath, published };
-}
-
-export async function rejectSubmission({ client, config, submission, pendingPath, pendingSha, reason, reviewer }) {
-  const { owner, stagingRepo, stagingBranch, rejectedDir } = config;
-  const targetPath = rejectedPath(pendingPath);
-  const target = await client.getFile(owner, stagingRepo, targetPath, stagingBranch);
-  const record = {
-    ...submission,
-    rejectedAt: new Date().toISOString(),
-    rejectReason: reason,
-  };
-
-  await client.putFile(owner, stagingRepo, targetPath, {
-    message: `data: reject ${submission.submissionId}`,
-    content: JSON.stringify(record, null, 2) + '\n',
-    sha: target?.sha,
-    branch: stagingBranch,
-  });
-  try {
-    await client.deleteFile(owner, stagingRepo, pendingPath, {
-      message: `data: reject ${submission.submissionId}`,
-      sha: pendingSha,
-      branch: stagingBranch,
-    });
-  } catch (error) {
-    if (error.status !== 404) throw error;
-  }
-
-  await appendAudit(client, config, auditEntry({
-    action: 'reject',
-    reviewer,
-    submissionId: submission.submissionId,
-    companyId: submission.companyId,
-    reason,
-  }));
-
-  return { targetPath };
 }
