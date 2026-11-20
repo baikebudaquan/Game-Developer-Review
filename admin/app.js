@@ -92,9 +92,9 @@ function setStatus(element, message, isError = false) {
 }
 
 function describeError(error) {
-  if (error.status === 401) return 'token 已失效或权限不足，请重新登录。';
-  if (error.status === 403) return '没有仓库写权限，请检查 token 权限。';
-  if (error.status === 404) return '仓库或文件不存在，请检查配置与私有仓。';
+  if (error.status === 401) return error.body?.message || 'token 已失效或权限不足，请重新登录。';
+  if (error.status === 403) return error.body?.message || '没有仓库写权限，请检查 token 权限。';
+  if (error.status === 404) return error.body?.message || '仓库或文件不存在，请检查配置与权限。';
   if (error.status === 409) return '并发冲突，请刷新后重试。';
   return error.message || '操作失败';
 }
