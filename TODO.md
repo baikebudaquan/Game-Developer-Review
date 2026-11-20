@@ -60,7 +60,7 @@
 
 - [x] `data-validate.yml`
 - [x] `site-deploy.yml`
-- [ ] 首次 `dev → main` 合并后，把 `admin/config.js` 的 `publicBranch` 改回 `main`
+- [x] 首次 `dev → main` 合并，控制台 `publicBranch` 已改回 `main`
 - [ ] 开启 Pages 并验证首次部署
 - [ ] 配置 `main` / `dev` 分支保护与 CODEOWNERS 实际权限
 
