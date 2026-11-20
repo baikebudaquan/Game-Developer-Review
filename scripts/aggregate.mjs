@@ -4,9 +4,12 @@ import { fileURLToPath } from 'node:url';
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const dataDir = resolve(root, 'data');
+const testDir = resolve(root, 'data-test');
+const includeTest = process.argv.includes('--test');
 const outDir = resolve(root, 'site/public/data/v1');
 
 const readJson = path => JSON.parse(readFileSync(path, 'utf8'));
+const dataDirs = includeTest ? [dataDir, testDir] : [dataDir];
 const round = value => Math.round(value * 10) / 10;
 const avg = scores => scores.length ? round(scores.reduce((sum, n) => sum + n, 0) / scores.length) : null;
 const median = scores => {
@@ -22,20 +25,33 @@ function shanghaiNow() {
 }
 
 function loadCompanies() {
-  const dir = join(dataDir, 'companies');
-  if (!existsSync(dir)) return [];
-  return readdirSync(dir)
-    .filter(name => name.endsWith('.json'))
-    .map(name => readJson(join(dir, name)))
-    .sort((a, b) => a.id.localeCompare(b.id));
+  const companies = new Map();
+  for (const dir of dataDirs) {
+    const companyDir = join(dir, 'companies');
+    if (!existsSync(companyDir)) continue;
+    readdirSync(companyDir)
+      .filter(name => name.endsWith('.json'))
+      .map(name => readJson(join(companyDir, name)))
+      .forEach(company => {
+        if (!companies.has(company.id)) companies.set(company.id, company);
+      });
+  }
+  return [...companies.values()].sort((a, b) => a.id.localeCompare(b.id));
 }
 
 function loadReviews(companyId) {
-  const dir = join(dataDir, 'reviews', companyId);
-  if (!existsSync(dir)) return [];
-  return readdirSync(dir)
-    .filter(name => name.endsWith('.json'))
-    .map(name => readJson(join(dir, name)))
+  const reviews = new Map();
+  for (const dir of dataDirs) {
+    const reviewDir = join(dir, 'reviews', companyId);
+    if (!existsSync(reviewDir)) continue;
+    readdirSync(reviewDir)
+      .filter(name => name.endsWith('.json'))
+      .map(name => readJson(join(reviewDir, name)))
+      .forEach(review => {
+        if (!reviews.has(review.id)) reviews.set(review.id, review);
+      });
+  }
+  return [...reviews.values()]
     .sort((a, b) => b.publishedAt.localeCompare(a.publishedAt) || a.id.localeCompare(b.id));
 }
 

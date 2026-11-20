@@ -163,8 +163,8 @@ async function deploySite(req, res) {
       return json(res, 500, { ok: false, message: '安装依赖失败', log: install.output.slice(-4000) });
     }
 
-    console.log('[deploy] npm run build');
-    const build = await run('npm', ['run', 'build'], { env, cwd: DEPLOY_DIR });
+    console.log('[deploy] npm run build:dev');
+    const build = await run('npm', ['run', 'build:dev'], { env, cwd: DEPLOY_DIR });
     if (build.code !== 0) {
       console.error(build.output);
       return json(res, 500, { ok: false, message: '构建失败', log: build.output.slice(-4000) });
