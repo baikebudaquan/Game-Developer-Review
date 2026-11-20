@@ -12,10 +12,14 @@ const retryButton = document.querySelector('#retry-button');
 const deleteButton = document.querySelector('#delete-button');
 const mailLink = document.querySelector('#mail-link');
 const draftNote = document.querySelector('#draft-note');
+const companyList = document.querySelector('#company-options');
 
-const FIELDS = ['company', 'project', 'score', 'comment', 'wish', 'role', 'tenure', 'employment', 'city'];
+const FIELDS = ['company', 'companyId', 'project', 'score', 'comment', 'wish', 'role', 'tenure', 'employment', 'city'];
 const DRAFT_KEY = 'gdr.submission.draft.v1';
 const DRAFT_TTL = 7 * 24 * 60 * 60 * 1000;
+const COMPANY_CATALOG_KEY = 'gdr.company.catalog.v1';
+const COMPANY_CATALOG_URL = 'https://gdr-site.pages.dev/data/v1/index.json';
+const COMPANY_CATALOG_TTL = 7 * 24 * 60 * 60 * 1000;
 const POW_DIFFICULTY = 3;
 const REQUEST_TIMEOUT = 5000;
 const GLOBAL_TIMEOUT = 15000;
@@ -26,6 +30,7 @@ let deadline = 0;
 let slowTimer = null;
 let startedAt = Date.now();
 let saveTimer = null;
+let companyIndex = new Map();
 
 function setStatus(message, isError = false) {
   statusEl.textContent = message;
@@ -74,6 +79,87 @@ async function solvePow() {
     }
     nonce += 1;
     if (nonce % 500 === 0) await new Promise(resolve => setTimeout(resolve, 0));
+  }
+}
+
+function readCachedCatalog() {
+  try {
+    const cached = JSON.parse(localStorage.getItem(COMPANY_CATALOG_KEY) || 'null');
+    if (cached && Array.isArray(cached.companies) && Date.now() - cached.savedAt < COMPANY_CATALOG_TTL) {
+      return cached.companies;
+    }
+  } catch {
+    // 缓存损坏时忽略
+  }
+  return null;
+}
+
+function saveCatalog(companies) {
+  try {
+    localStorage.setItem(COMPANY_CATALOG_KEY, JSON.stringify({ savedAt: Date.now(), companies }));
+  } catch {
+    // 本地存储不可用时忽略
+  }
+}
+
+function syncCompanyId() {
+  const input = form.elements.namedItem('company');
+  const hidden = form.elements.namedItem('companyId');
+  if (!input || !hidden) return;
+  hidden.value = companyIndex.get(input.value.trim().toLowerCase()) || '';
+}
+
+function renderCatalog(companies) {
+  const seen = new Set();
+  const options = [];
+  companyIndex = new Map();
+  companies
+    .filter(company => company && company.id && company.name)
+    .sort((a, b) => a.name.localeCompare(b.name, 'zh-CN'))
+    .forEach(company => {
+      [company.name, ...(company.aliases || [])].forEach(label => {
+        const text = String(label || '').trim();
+        if (!text || seen.has(text.toLowerCase())) return;
+        seen.add(text.toLowerCase());
+        options.push(new Option(text, text));
+        companyIndex.set(text.toLowerCase(), company.id);
+      });
+      if (company.slug) companyIndex.set(String(company.slug).toLowerCase(), company.id);
+    });
+  companyList.replaceChildren(...options);
+  syncCompanyId();
+}
+
+async function loadCompanyCatalog() {
+  const cached = readCachedCatalog();
+  if (cached) {
+    renderCatalog(cached);
+    return;
+  }
+  const abort = new AbortController();
+  const timer = setTimeout(() => abort.abort(), 3000);
+  try {
+    const response = await fetch(COMPANY_CATALOG_URL, {
+      signal: abort.signal,
+      headers: { Accept: 'application/json' },
+    });
+    if (!response.ok) return;
+    const data = await response.json();
+    const companies = Array.isArray(data?.companies)
+      ? data.companies.map(company => ({
+        id: company.id,
+        name: company.name,
+        slug: company.slug,
+        aliases: Array.isArray(company.aliases) ? company.aliases : [],
+      }))
+      : [];
+    if (!companies.length) return;
+    renderCatalog(companies);
+    saveCatalog(companies);
+  } catch {
+    // 拉不到公司列表时保持自由输入，不影响提交
+  } finally {
+    clearTimeout(timer);
   }
 }
 
@@ -215,6 +301,8 @@ function showFallback(message) {
 
 form.addEventListener('input', scheduleSave);
 form.addEventListener('change', scheduleSave);
+form.elements.namedItem('company')?.addEventListener('input', syncCompanyId);
+form.elements.namedItem('company')?.addEventListener('change', syncCompanyId);
 
 form.addEventListener('submit', async event => {
   event.preventDefault();
@@ -338,3 +426,4 @@ deleteButton.addEventListener('click', () => {
 
 restoreDraft();
 updateMailLink();
+loadCompanyCatalog();

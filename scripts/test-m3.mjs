@@ -75,11 +75,12 @@ assert.equal(company.projects.length, 1);
 const raw = {
   submissionId: '4d0f3f0e-8a3d-4b2f-9c1e-7f6a5b4c3d2e',
   submittedAt: '2026-11-20T10:00:00.000Z',
-  payload: { company: '云岬互动', project: '星港', score: 4, comment: '正文', profile: { role: 'program' } },
+  payload: { company: '云岬互动', companyId: 'c_cloudcape', project: '星港', score: 4, comment: '正文', profile: { role: 'program' } },
   meta: { flags: ['fast_submit'], ipHash: 'abc' },
 };
 const view = parseSubmission(raw);
 assert.equal(view.company, '云岬互动');
+assert.equal(view.companyId, 'c_cloudcape');
 assert.deepEqual(view.flags, ['fast_submit']);
 
 // 发布：单次原子提交，且重复调用不再写公开仓

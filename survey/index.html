@@ -24,7 +24,10 @@
     <form id="submit-form" action="/api/submit" method="post">
       <div class="field">
         <label for="company">公司名 <em>必填</em></label>
-        <input id="company" name="company" type="text" maxlength="50" autocomplete="organization" required>
+        <input id="company" name="company" type="text" maxlength="50" list="company-options" autocomplete="organization" required>
+        <datalist id="company-options"></datalist>
+        <input id="companyId" name="companyId" type="hidden">
+        <small>可直接输入；也可以从列表选择。找不到就照实填，审核时归类。</small>
       </div>
 
       <div class="field">

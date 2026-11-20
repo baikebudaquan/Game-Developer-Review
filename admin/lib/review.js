@@ -42,6 +42,7 @@ export function parseSubmission(raw) {
   return {
     submissionId: String(raw.submissionId || ''),
     submittedAt: String(raw.submittedAt || ''),
+    companyId: String(payload.companyId || ''),
     company: String(payload.company || ''),
     project: String(payload.project || ''),
     score: Number(payload.score) || 0,
