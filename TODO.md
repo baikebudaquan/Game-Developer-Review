@@ -26,25 +26,24 @@
 
 - [x] 问卷页 `survey/`：原生表单 + JS 增强、本地暂存、超时 / 重试 / 兜底
 - [x] `POST /api/submit` Pages Function：大小 / 长度校验、蜜罐、PoW、限流、幂等
-- [x] D1 表结构与 `pending_sync` 写入
-- [x] Cron Worker：同步到私有仓、指数退避、失败重试
+- [x] D1 表结构与 `pending` 写入
+- [x] 审核状态机（`pending` → `approved` / `rejected`）与 `audit_log` 表
 - [x] 零依赖测试脚本 `scripts/test-m2.mjs`
-- [ ] 新建私有暂存仓 `Game-Developer-Review-staging`
-- [ ] 在 Cloudflare 创建 D1、执行迁移并绑定 Pages 项目
+- [ ] 在 Cloudflare 创建 D1、执行迁移并绑定两个 Pages 项目
 - [ ] 问卷页部署到 Cloudflare Pages 并绑定自定义域名
 - [ ] PoW 挑战改为服务端签发（当前由客户端生成，仅防脚本误提交）
 - [ ] 客户端 PoW 难度与服务端 `POW_DIFFICULTY` 联动
 - [ ] 备用境外提交端点（Deno Deploy / Fly.io / Vercel）
-- [ ] 同步失败告警（邮件或 webhook）
-- [ ] 过期数据清理任务（D1、`ipHash`、`rejected`）
+- [ ] D1 导出备份与过期数据清理任务（`ipHash`、已发布提交）
 
 ## M3 审核控制台
 
-- [x] `admin/` 静态 SPA 与管理员登录（PAT、sessionStorage、白名单）
+- [x] `admin/` 静态 SPA 与管理员登录（PAT、sessionStorage、服务端权限校验）
+- [x] 控制台 Pages Functions API：登录校验、待审列表、通过、拒绝、审计
 - [x] 待审列表、详情、公司 / 项目匹配、脱敏编辑
-- [x] 通过：Git Data API 单次原子提交到公开仓
-- [x] 拒绝：移入 `rejected/` 并记录原因
-- [x] 审计日志 `audit/{yyyy}-{mm}.jsonl`
+- [x] 通过：Git Data API 单次原子提交到公开仓，并标记 D1 为 `approved`
+- [x] 拒绝：标记 D1 为 `rejected` 并记录原因
+- [x] 审计日志写入 D1 `audit_log`
 - [ ] GitHub OAuth Device Flow 登录（替代手动粘贴 PAT）
 - [ ] 控制台部署到独立子域并与真实 token 联调
 - [ ] 批量通过（仅限已匹配公司且无敏感词命中）
