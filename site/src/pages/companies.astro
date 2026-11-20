@@ -1,30 +1,42 @@
 ---
 import Layout from '../components/Layout.astro';
 import Mark from '../components/Mark.astro';
+import StudioMasthead from '../components/StudioMasthead.astro';
+import { projectsByStudio } from '../lib/projects';
+import '../styles/studios.css';
 import { href, index, detail, taxonomy, label, month, scoreText } from '../lib/data';
 const sorted = index.companies.map(c => ({
-  ...c, aliases: c.aliases ?? detail(c.id).company.aliases ?? [],
+  ...c, aliases: c.aliases ?? detail(c.id).company.aliases ?? [], titles: projectsByStudio.get(c.slug) ?? [],
 })).sort((a,b) => (b.avgScore ?? -1) - (a.avgScore ?? -1) || b.reviewCount-a.reviewCount || a.name.localeCompare(b.name,'zh-CN'));
+const spotlight = sorted.reduce<(typeof sorted)[number] | undefined>((best,c) =>
+  c.reviewCount > (best?.reviewCount ?? 0) ? c : best, undefined);
 ---
-<Layout title="游戏公司评价库">
-  <section aria-labelledby="directory">
-    <div class="section-title" style="margin-top:30px"><div><h1 id="directory">公司目录</h1><span class="total">{index.totals.companies}</span></div></div>
-    <div class="toolbar">
-      <label class="search"><i class="glass" aria-hidden="true"></i><input type="search" id="query" aria-label="搜索公司" placeholder="搜索公司名称或别名" autocomplete="off" /></label>
-      <label class="sort">排序<select id="sort"><option value="score">综合评分</option><option value="count">评价数量</option><option value="recent">最近更新</option></select></label>
+<Layout title="公司目录" active="companies" dark>
+  <header class="discovery-intro">
+    <div><h1>公司目录</h1><p>{index.totals.companies} 家公司 <span>·</span> {index.totals.projects} 个游戏项目</p></div>
+    <div class="search-field studio-search"><i class="glass" aria-hidden="true"></i><input type="search" id="query" aria-label="搜索公司" placeholder="搜索公司名称或别名" autocomplete="off" /><button type="button" id="clear-query" aria-label="清空搜索" hidden>×</button></div>
+  </header>
+  {spotlight && <StudioMasthead company={spotlight} spotlight/>}
+  <section class="studio-directory" aria-labelledby="directory">
+    <div class="discovery-section-head"><h2 id="directory"><i aria-hidden="true"></i><span data-list-title>全部公司</span><small data-count-label>{sorted.length}</small></h2>
+      <label class="studio-sort">排序<select id="sort"><option value="score">综合评分</option><option value="count">评价数量</option><option value="recent">最近更新</option></select></label>
     </div>
-    <div class="company-grid" id="companies">
-      {sorted.map(c=><a class="company-card" href={href('company/' + c.slug + '/')}
+    <div class="studio-grid" id="companies">
+      {sorted.map(c=><a class="company-card studio-tile" href={href('company/' + c.slug + '/')}
         data-name={[c.name,c.slug,...(c.aliases || [])].join(' ')} data-score={c.avgScore ?? -1} data-count={c.reviewCount} data-recent={c.lastPublishedAt ?? ''}>
-        <div class="card-top"><Mark slug={c.slug} /><div class="card-title"><h3>{c.name}</h3>{c.aliases?.[0] && <small>{c.aliases[0]}</small>}</div>
-          <span class="rating" aria-label={'综合评分 ' + scoreText(c.avgScore)}><i>★</i>{scoreText(c.avgScore)}</span>
+        <div class="studio-tile-art">{c.titles[0]?.cover && <img loading="lazy" src={c.titles[0].cover} alt=""/>}
+          <span class="studio-tile-score" aria-label={'综合评分 '+scoreText(c.avgScore)}><i aria-hidden="true">★</i> {scoreText(c.avgScore)}</span>
         </div>
-        <div class="card-info"><span>{c.projectCount} 个项目</span><span>{c.reviewCount} 条评价</span>{c.lastPublishedAt && <span>{month(c.lastPublishedAt)} 更新</span>}</div>
-        <div class="card-foot"><div class="chips">{c.topTags.slice(0,3).map(t=><span>{label(taxonomy.tags,t.key)}</span>)}</div><span class="go" aria-label="查看详情">↗</span></div>
+        <div class="studio-tile-body">
+          <div class="studio-tile-name"><Mark slug={c.slug}/><div><h3>{c.name}</h3>{c.aliases[0] && <small>{c.aliases[0]}</small>}</div></div>
+          {c.titles.length>0 && <p class="studio-titles">{c.titles.slice(0,2).map(p=>p.name).join(' · ')}</p>}
+          <div class="studio-tile-meta"><span>{c.projectCount} 个项目</span><span>{c.reviewCount} 篇评价</span>{c.lastPublishedAt && <span>{month(c.lastPublishedAt)} 更新</span>}</div>
+          <div class="studio-tile-foot"><div class="chips">{c.topTags.slice(0,3).map(t=><span>{label(taxonomy.tags,t.key)}</span>)}</div><span aria-hidden="true">↗</span></div>
+        </div>
       </a>)}
     </div>
     <p class="sr" role="status" id="results"></p>
-    <div class="empty" id="no-results" hidden><strong>没有找到匹配的公司</strong><button type="button" id="clear-search">清空搜索</button></div>
+    <div class="project-empty" id="no-results" hidden={sorted.length>0}><strong>没有找到匹配的公司</strong><div><button type="button" id="clear-search">清空搜索</button></div></div>
   </section>
 </Layout>
 <script>
@@ -32,8 +44,10 @@ const sorted = index.companies.map(c => ({
   const cards = Array.from(grid.querySelectorAll<HTMLAnchorElement>('.company-card'));
   const search = document.querySelector<HTMLInputElement>('#query')!;
   const sort = document.querySelector<HTMLSelectElement>('#sort')!;
+  const clearQuery = document.querySelector<HTMLButtonElement>('#clear-query')!;
   function refresh() {
     const needle = search.value.trim().toLocaleLowerCase();
+    clearQuery.hidden = !search.value;
     const ordered = [...cards].sort((a,b) => {
       if (sort.value === 'recent') return (b.dataset.recent || '').localeCompare(a.dataset.recent || '');
       const key = sort.value === 'count' ? 'count' : 'score';
@@ -45,12 +59,17 @@ const sorted = index.companies.map(c => ({
       if (!el.hidden) count++;
       grid.append(el);
     }
-    document.querySelector<HTMLElement>('.total')!.textContent = String(count);
+    document.querySelector<HTMLElement>('[data-count-label]')!.textContent = String(count);
+    document.querySelector<HTMLElement>('[data-list-title]')!.textContent = needle ? '公司搜索结果' : '全部公司';
+    const masthead = document.querySelector<HTMLElement>('[data-studio-mast]');
+    if (masthead) masthead.hidden = Boolean(needle);
     document.querySelector<HTMLElement>('#no-results')!.hidden = count > 0;
     document.querySelector<HTMLElement>('#results')!.textContent = `共 ${count} 家公司`;
   }
   search.addEventListener('input', refresh);
   sort.addEventListener('change', refresh);
-  document.querySelector('#clear-search')!.addEventListener('click', () => { search.value = ''; refresh(); search.focus(); });
+  function resetSearch() { search.value = ''; refresh(); search.focus(); }
+  clearQuery.addEventListener('click',resetSearch);
+  document.querySelector('#clear-search')!.addEventListener('click',resetSearch);
   refresh();
 </script>

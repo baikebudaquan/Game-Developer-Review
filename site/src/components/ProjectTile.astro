@@ -1,0 +1,14 @@
+---
+import ProjectCover from './ProjectCover.astro';
+import type { Project } from '../lib/projects';
+interface Props { project: Project; inStudio?: boolean; showRating?: boolean }
+const {project:p, inStudio=false, showRating=true} = Astro.props;
+---
+<a class="project-tile" href={p.path} data-project={p.search}>
+  <span class="tile-frame"><ProjectCover project={p}/>
+    {p.reviews[0] && <span class="tile-peek"><small>最近评价</small><span>{p.reviews[0].title || p.reviews[0].comment}</span><b>查看全部评价 →</b></span>}
+  </span>
+  <div class="tile-body"><small>{inStudio ? p.status : p.company}</small><h3>{p.name}</h3>
+    {showRating && <div class="tile-rating"><b class:list={['grade',{'neutral':p.ratio<.7}]}>{p.grade}</b><span>{p.count} 篇评价</span></div>}
+  </div>
+</a>

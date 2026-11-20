@@ -30,3 +30,4 @@ export const projects = index.companies.flatMap(c => {
   });
 }).sort(compareProjects);
 export type Project = (typeof projects)[number];
+export const projectsByStudio = Map.groupBy(projects, project => project.slug);

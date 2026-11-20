@@ -1,6 +1,6 @@
 ---
 import Layout from '../components/Layout.astro';
-import ProjectCover from '../components/ProjectCover.astro';
+import ProjectTile from '../components/ProjectTile.astro';
 import DiscoverySearch from '../components/DiscoverySearch.astro';
 import FeaturedProjects from '../components/FeaturedProjects.astro';
 import { projects, asOf } from '../lib/projects';
@@ -14,12 +14,7 @@ import { index, href } from '../lib/data';
       <div class="discovery-section-head"><h2 id="library-title"><i aria-hidden="true"></i><span data-library-title>全部项目</span><small data-result-count>{projects.length}</small></h2>
       <details class="ranking-rule"><summary>近期好评最多 ⓘ</summary><p>以 {asOf} 的数据为准，统计近 30 个自然日内的 4、5 星评价。同数时依次比较累计好评数、总评价数和最近评价日期。等级按全部评价的好评比例及样本量换算。</p></details></div>
       <div class="project-grid">
-        {projects.map(p=><a class="project-tile" href={p.path} data-project={p.search}>
-          <span class="tile-frame"><ProjectCover project={p}/>
-          {p.reviews[0] && <span class="tile-peek"><small>最近评价</small><span>{p.reviews[0].title || p.reviews[0].comment}</span><b>查看全部评价 →</b></span>}
-          </span>
-          <div class="tile-body"><small>{p.company}</small><h3>{p.name}</h3><div class="tile-rating"><b class:list={['grade',{'neutral':p.ratio<.7}]}>{p.grade}</b><span>{p.count} 篇评价</span></div></div>
-        </a>)}
+        {projects.map(p=><ProjectTile project={p}/>)}
       </div>
       <div class="project-empty" data-empty hidden><h3>没有找到匹配的项目</h3><button type="button" data-reset>查看全部项目</button></div>
       <p class="sr" role="status" data-search-status></p>
