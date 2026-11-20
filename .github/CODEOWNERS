@@ -1,0 +1,19 @@
+# CODEOWNERS
+# 说明：目前仓库只有一个已知账号。请把 @baikebudaquan 之外的归属补成两位开发的实际 GitHub 用户名。
+# 规则：数据契约、构建脚本与 CI 改动必须两人共同评审（在分支保护里设置 Required approvals = 2）。
+
+# 数据契约与构建：必须两人评审
+/schema/        @baikebudaquan
+/data/          @baikebudaquan
+/scripts/       @baikebudaquan
+/.github/       @baikebudaquan
+
+# 三个系统
+/survey/        @baikebudaquan
+/functions/     @baikebudaquan
+/worker/        @baikebudaquan
+/admin/         @baikebudaquan
+/site/          @baikebudaquan
+
+# 文档
+/docs/          @baikebudaquan
