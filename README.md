@@ -18,11 +18,30 @@
 
 ### 登录
 
-粘贴自己的 GitHub PAT：
+控制台用 GitHub PAT 登录。按自己的身份选一种令牌：
 
-- 需要 `bkbdq/Game-Developer-Review` 的 Contents 读写权限
-- 优先用 fine-grained token；如果登录返回 403，改用 classic token 并勾选 `repo`
-- token 只存在当前标签页的 `sessionStorage`，关闭标签页即失效
+#### 仓库主人（管理员）：fine-grained token
+
+1. 打开 https://github.com/settings/tokens?type=beta
+2. 点 **Generate new token**
+3. Name 填 `gdr-admin`，Expiration 选 30–90 天
+4. Resource owner 选 `bkbdq`
+5. Repository access 选 **Only select repositories** → `Game-Developer-Review`
+6. Permissions → Repository permissions → **Contents** 选 **Read and write**
+   （`Metadata` 会自动变成 Read-only，正常）
+7. 点 **Generate token**，复制 `github_pat_...`
+
+#### 仓库协作者：classic token
+
+GitHub 的细粒度令牌不支持写别人的个人仓库，协作者请用 classic：
+
+1. 打开 https://github.com/settings/tokens
+2. 点 **Generate new token (classic)**
+3. Note 填 `gdr-admin`，Expiration 选 30 天
+4. Scopes 只勾 **`repo`**
+5. 点 **Generate token**，复制 `ghp_...`
+
+两种 token 都只存在当前标签页的 `sessionStorage`，关闭标签页即失效；不要写进文件或提交到仓库。登录返回 403 时，先确认 token 对 `bkbdq/Game-Developer-Review` 有 Contents 写权限；仍不行就换另一种令牌。
 
 ### 审核
 
