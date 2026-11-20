@@ -2,6 +2,9 @@
 
 > 一个面向游戏行业从业者的匿名公司评价平台：说真话，不被认出来。
 
+- 匿名问卷：https://gdr-survey.pages.dev/
+- 展示站（GitHub Pages）：https://bkbdq.github.io/Game-Developer-Review/
+
 ## 这是什么
 
 Game-Developer-Review 是一个游戏行业的匿名评价平台。你可以匿名写下自己待过的游戏公司、参与过的项目、真实的加班与福利情况、管理方式和项目体验，帮助后来者在下一次求职或合作前，看到招聘 JD 之外的另一面。
