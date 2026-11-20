@@ -1,67 +1,28 @@
 ---
 import Layout from '../components/Layout.astro';
-import Mark from '../components/Mark.astro';
-import { href, index, detail, taxonomy, label, month, scoreText } from '../lib/data';
-const sorted = index.companies.map(c => ({
-  ...c, aliases: c.aliases ?? detail(c.id).company.aliases ?? [],
-})).sort((a,b) => (b.avgScore ?? -1) - (a.avgScore ?? -1) || b.reviewCount-a.reviewCount || a.name.localeCompare(b.name,'zh-CN'));
-const stats = [[index.totals.companies,'家公司'], [index.totals.projects,'个项目'], [index.totals.reviews,'条评价']];
+import ProjectTile from '../components/ProjectTile.astro';
+import DiscoverySearch from '../components/DiscoverySearch.astro';
+import FeaturedProjects from '../components/FeaturedProjects.astro';
+import { projects, asOf } from '../lib/projects';
+import { index, href } from '../lib/data';
 ---
-<Layout title="游戏公司评价库">
-  <section class="hero">
-    <img class="hero-art" src={href('images/studio.webp')} alt="" />
-    <div class="hero-copy">
-      <p class="eyebrow"><span class="pixel-cross" aria-hidden="true">✦</span> 游戏行业匿名评价</p>
-      <h1>游戏公司评价库</h1>
-      <p class="lede">从开发者的工作经历，了解游戏公司与项目。</p>
-      <div class="stats">{stats.map(([n,text])=><span><strong>{n}</strong>{text}</span>)}</div>
-    </div>
-  </section>
-  <section aria-labelledby="directory">
-    <div class="section-title"><div><h2 id="directory">公司目录</h2><span class="total">{index.totals.companies}</span></div></div>
-    <div class="toolbar">
-      <label class="search"><i class="glass" aria-hidden="true"></i><input type="search" id="query" aria-label="搜索公司" placeholder="搜索公司名称或别名" autocomplete="off" /></label>
-      <label class="sort">排序<select id="sort"><option value="score">综合评分</option><option value="count">评价数量</option><option value="recent">最近更新</option></select></label>
-    </div>
-    {sorted.length === 0 && <div class="empty"><strong>还没有已发布的评价</strong><span>审核通过后会出现在这里。</span></div>}
-    <div class="company-grid" id="companies">
-      {sorted.map(c=><a class="company-card" href={href('company/' + c.slug + '/')}
-        data-name={[c.name,c.slug,...(c.aliases || [])].join(' ')} data-score={c.avgScore ?? -1} data-count={c.reviewCount} data-recent={c.lastPublishedAt ?? ''}>
-        <div class="card-top"><Mark slug={c.slug} /><div class="card-title"><h3>{c.name}</h3>{c.aliases?.[0] && <small>{c.aliases[0]}</small>}</div>
-          <span class="rating" aria-label={'综合评分 ' + scoreText(c.avgScore)}><i>★</i>{scoreText(c.avgScore)}</span>
-        </div>
-        <div class="card-info"><span>{c.projectCount} 个项目</span><span>{c.reviewCount} 条评价</span>{c.lastPublishedAt && <span>{month(c.lastPublishedAt)} 更新</span>}</div>
-        <div class="card-foot"><div class="chips">{c.topTags.slice(0,3).map(t=><span>{label(taxonomy.tags,t.key)}</span>)}</div><span class="go" aria-label="查看详情">↗</span></div>
-      </a>)}
-    </div>
-    <p class="sr" role="status" id="results"></p>
-    <div class="empty" id="no-results" hidden><strong>没有找到匹配的公司</strong><button type="button" id="clear-search">清空搜索</button></div>
-  </section>
+<Layout title="项目发现" active="projects" dark>
+  <div class="discover-home" data-arcade-url={href('arcade/#arcade-title')}>
+    <header class="discovery-intro"><div><h1>项目发现</h1><p>{index.totals.companies} 家公司 <span>·</span> {projects.length} 个游戏项目</p></div><DiscoverySearch/></header>
+    <FeaturedProjects/>
+    <section id="projects" class="project-library" aria-labelledby="library-title">
+      <div class="discovery-section-head"><h2 id="library-title"><i aria-hidden="true"></i><span data-library-title>全部项目</span><small data-result-count>{projects.length}</small></h2>
+      <details class="ranking-rule"><summary>近期好评最多 ⓘ</summary><p>以 {asOf} 的数据为准，统计近 30 个自然日内的 4、5 星评价。同数时依次比较累计好评数、总评价数和最近评价日期。等级按全部评价的好评比例及样本量换算。</p></details></div>
+      <div class="project-grid">
+        {projects.map(p=><ProjectTile project={p}/>)}
+      </div>
+      {projects.length === 0 && <div class="project-empty"><h3>还没有已发布的评价</h3><p>审核通过后会出现在这里。</p></div>}
+      <div class="project-empty" data-empty hidden><h3>没有找到匹配的项目</h3><button type="button" data-reset>查看全部项目</button></div>
+      <p class="sr" role="status" data-search-status></p>
+    </section>
+  </div>
 </Layout>
 <script>
-  const grid = document.querySelector<HTMLElement>('#companies')!;
-  const cards = Array.from(grid.querySelectorAll<HTMLAnchorElement>('.company-card'));
-  const search = document.querySelector<HTMLInputElement>('#query')!;
-  const sort = document.querySelector<HTMLSelectElement>('#sort')!;
-  function refresh() {
-    const needle = search.value.trim().toLocaleLowerCase();
-    const ordered = [...cards].sort((a,b) => {
-      if (sort.value === 'recent') return (b.dataset.recent || '').localeCompare(a.dataset.recent || '');
-      const key = sort.value === 'count' ? 'count' : 'score';
-      return Number(b.dataset[key]) - Number(a.dataset[key]);
-    });
-    let count = 0;
-    for (const el of ordered) {
-      el.hidden = !el.dataset.name!.toLocaleLowerCase().includes(needle);
-      if (!el.hidden) count++;
-      grid.append(el);
-    }
-    document.querySelector<HTMLElement>('.total')!.textContent = String(count);
-    document.querySelector<HTMLElement>('#no-results')!.hidden = count > 0 || cards.length === 0;
-    document.querySelector<HTMLElement>('#results')!.textContent = `共 ${count} 家公司`;
-  }
-  search.addEventListener('input', refresh);
-  sort.addEventListener('change', refresh);
-  document.querySelector('#clear-search')!.addEventListener('click', () => { search.value = ''; refresh(); search.focus(); });
-  refresh();
+  import { setupDiscovery } from '../lib/discovery-ui';
+  setupDiscovery();
 </script>

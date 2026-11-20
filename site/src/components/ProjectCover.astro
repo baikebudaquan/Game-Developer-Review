@@ -1,0 +1,9 @@
+---
+import type { Project } from '../lib/projects';
+interface Props { project: Project; eager?: boolean }
+const { project: p, eager = false } = Astro.props;
+---
+<span data-art={p.id} class:list={['project-art',{'without-art':!p.cover}]}>
+  {p.cover && <img src={p.cover} alt="" loading={eager?'eager':'lazy'} decoding="async" fetchpriority={eager?'high':undefined} data-cover-image />}
+  <span class="project-wordmark" data-logo><strong>{p.wordmark}</strong></span>
+</span>

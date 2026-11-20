@@ -99,6 +99,8 @@ site/public/data/v1 ──► Astro 构建 ──► site/dist ──► GitHub 
 
 ## 数据维护
 
+首页按公司名、别名或项目名搜索，项目卡片链接至该项目的全部公开评价。推荐按数据生成日（北京时间）往前含当天 30 个自然日的好评数排序，4、5 星计为好评。同数时依次比较累计好评数、总评价数和最近评价日期。展示等级取自项目全部评价的好评比例与评价数量。项目场景图为虚构项目的演示素材。
+
 - 公司元数据与项目列表：`data/companies/{companyId}.json`
 - 单条已审核评价：`data/reviews/{companyId}/{reviewId}.json`
 - 枚举字典：`data/taxonomy.json`
