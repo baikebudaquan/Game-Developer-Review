@@ -1,0 +1,30 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/baikebudaquan/Game-Developer-Review/schema/taxonomy.schema.json",
+  "title": "枚举字典",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schemaVersion", "roles", "tenures", "employments", "cities", "tags"],
+  "properties": {
+    "schemaVersion": { "const": 1 },
+    "roles": { "$ref": "#/$defs/entries" },
+    "tenures": { "$ref": "#/$defs/entries" },
+    "employments": { "$ref": "#/$defs/entries" },
+    "cities": { "$ref": "#/$defs/entries" },
+    "tags": { "$ref": "#/$defs/entries" }
+  },
+  "$defs": {
+    "entries": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["key", "label"],
+        "properties": {
+          "key": { "type": "string", "pattern": "^[a-z0-9_-]+$" },
+          "label": { "type": "string", "minLength": 1 }
+        }
+      }
+    }
+  }
+}

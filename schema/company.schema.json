@@ -1,0 +1,31 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/baikebudaquan/Game-Developer-Review/schema/company.schema.json",
+  "title": "公司元数据",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schemaVersion", "id", "slug", "name", "projects", "createdAt", "updatedAt"],
+  "properties": {
+    "schemaVersion": { "const": 1 },
+    "id": { "type": "string", "pattern": "^c_[a-z0-9_-]+$" },
+    "slug": { "type": "string", "pattern": "^[a-z0-9-]+$" },
+    "name": { "type": "string", "minLength": 1, "maxLength": 50 },
+    "aliases": { "type": "array", "items": { "type": "string" }, "uniqueItems": true },
+    "projects": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["id", "name", "status"],
+        "properties": {
+          "id": { "type": "string", "pattern": "^p_[a-z0-9_-]+$" },
+          "name": { "type": "string", "minLength": 1, "maxLength": 50 },
+          "status": { "enum": ["live", "dev", "cancelled", "unknown"] },
+          "genre": { "type": "string" }
+        }
+      }
+    },
+    "createdAt": { "type": "string", "format": "date" },
+    "updatedAt": { "type": "string", "format": "date" }
+  }
+}

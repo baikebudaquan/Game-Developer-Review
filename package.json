@@ -3,8 +3,10 @@
   "private": true,
   "workspaces": ["site"],
   "scripts": {
-    "dev": "npm run dev --workspace site",
-    "build": "npm run build --workspace site",
+    "data:validate": "node scripts/validate.mjs",
+    "data:build": "node scripts/aggregate.mjs",
+    "dev": "npm run data:build && npm run dev --workspace site",
+    "build": "npm run data:validate && npm run data:build && npm run build --workspace site",
     "preview": "npm run preview --workspace site"
   }
 }

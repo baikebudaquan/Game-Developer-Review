@@ -27,7 +27,7 @@ interface Index {
 }
 
 export const isDemo = !process.env.REVIEW_DATA_DIR;
-const directory = process.env.REVIEW_DATA_DIR || resolve('demo/v1');
+const directory = process.env.REVIEW_DATA_DIR || resolve('public/data/v1');
 function read<T>(name: string): T {
   const value = JSON.parse(readFileSync(resolve(directory, name + '.json'), 'utf8'));
   if (value.schemaVersion !== 1) throw new Error('不支持的数据版本：' + name);
