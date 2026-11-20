@@ -1,9 +1,9 @@
 import { createClient } from './lib/github.js';
+import { createApi } from './lib/api.js';
 import { config } from './config.js';
 import {
   parseSubmission,
   parseJson,
-  listPendingPaths,
   newReviewId,
   today,
   buildReview,
@@ -13,7 +13,7 @@ import {
   validateCompany,
   slugify,
 } from './lib/review.js';
-import { publishReview, rejectSubmission } from './lib/publish.js';
+import { publishReview } from './lib/publish.js';
 
 const TOKEN_KEY = 'gdr.admin.token';
 
@@ -57,13 +57,13 @@ const globalStatus = $('#global-status');
 
 const state = {
   client: null,
-  user: null,
+  api: null,
   taxonomy: null,
   companies: new Map(),
   pending: [],
   pendingTotal: 0,
   selected: null,
-  selectedPath: null,
+  selectedId: null,
   reviewId: null,
   busy: false,
 };
@@ -136,7 +136,7 @@ function renderList() {
   items.forEach(item => {
     pendingList.append(h('button', {
       type: 'button',
-      class: 'item' + (item.path === state.selectedPath ? ' active' : ''),
+      class: 'item' + (item.id === state.selectedId ? ' active' : ''),
       onClick: () => selectItem(item),
     },
       h('div', { class: 'item-head' },
@@ -225,14 +225,14 @@ function showEmptyDetail() {
   reviewForm.hidden = true;
   detailEmpty.hidden = false;
   state.selected = null;
-  state.selectedPath = null;
+  state.selectedId = null;
   state.reviewId = null;
   renderList();
 }
 
 function selectItem(item) {
   state.selected = item;
-  state.selectedPath = item.path;
+  state.selectedId = item.id;
   state.reviewId = newReviewId();
   renderList();
   renderDetail(item);
@@ -259,13 +259,13 @@ function setBusy(busy) {
 }
 
 async function loadData() {
-  const { client } = state;
+  const { client, api } = state;
   setStatus(globalStatus, '正在加载数据…');
 
-  const [taxonomyFile, companyTree, pendingTree] = await Promise.all([
+  const [taxonomyFile, companyTree, pendingResult] = await Promise.all([
     client.getFile(config.owner, config.publicRepo, config.taxonomyPath, config.publicBranch),
     client.getTree(config.owner, config.publicRepo, config.publicBranch),
-    client.getTree(config.owner, config.stagingRepo, config.stagingBranch),
+    api.listPending(config.maxPending),
   ]);
   if (!taxonomyFile) throw new Error('公开仓缺少 taxonomy.json');
 
@@ -281,20 +281,16 @@ async function loadData() {
   }));
   state.companies = new Map(companyFiles.filter(Boolean).map(company => [company.id, company]));
 
-  const allPending = listPendingPaths(pendingTree, config.pendingDir);
-  const paths = allPending.slice(0, config.maxPending);
-  const files = await Promise.all(paths.map(async path => {
-    const file = await client.getFile(config.owner, config.stagingRepo, path, config.stagingBranch);
-    if (!file) return null;
-    const raw = parseJson(file.content, path);
-    const view = parseSubmission(raw);
-    return view ? { path, sha: file.sha, raw, view } : null;
-  }));
-  state.pending = files.filter(Boolean).sort((a, b) =>
-    (b.raw.submittedAt || '').localeCompare(a.raw.submittedAt || ''));
-  state.pendingTotal = allPending.length;
+  state.pending = (pendingResult.items || [])
+    .map(item => {
+      const view = parseSubmission(item.submission);
+      return view ? { id: item.id, raw: item.submission, view } : null;
+    })
+    .filter(Boolean)
+    .sort((a, b) => (b.raw.submittedAt || '').localeCompare(a.raw.submittedAt || ''));
+  state.pendingTotal = pendingResult.total || 0;
   state.selected = null;
-  state.selectedPath = null;
+  state.selectedId = null;
   state.reviewId = null;
   showEmptyDetail();
   renderList();
@@ -304,33 +300,24 @@ async function signIn(token, { silent = false } = {}) {
   if (!silent) setStatus(loginStatus, '正在验证 token…');
   try {
     const client = createClient(token);
-    const user = await client.getUser();
-    if (config.allowedLogins.length && !config.allowedLogins.includes(user.login)) {
-      throw new Error('该账号不在管理员白名单中');
-    }
-    const [publicRepo, stagingRepo] = await Promise.all([
-      client.getRepo(config.owner, config.publicRepo),
-      client.getRepo(config.owner, config.stagingRepo),
-    ]);
-    if (publicRepo.permissions?.push !== true || stagingRepo.permissions?.push !== true) {
-      throw new Error('token 需要对两个仓库具备 Contents 读写权限');
-    }
+    const api = createApi(token);
+    const me = await api.me();
 
     sessionStorage.setItem(TOKEN_KEY, token);
     state.client = client;
-    state.user = user;
+    state.api = api;
     await loadData();
 
     loginView.hidden = true;
     appView.hidden = false;
     logoutButton.hidden = false;
-    userLabel.textContent = `@${user.login}`;
+    userLabel.textContent = `@${me.login}`;
     setStatus(loginStatus, '');
     setStatus(globalStatus, `已加载 ${state.pending.length} 条待审提交`);
   } catch (error) {
     sessionStorage.removeItem(TOKEN_KEY);
     state.client = null;
-    state.user = null;
+    state.api = null;
     setStatus(loginStatus, describeError(error), true);
   }
 }
@@ -338,12 +325,12 @@ async function signIn(token, { silent = false } = {}) {
 function signOut(message = '') {
   sessionStorage.removeItem(TOKEN_KEY);
   state.client = null;
-  state.user = null;
+  state.api = null;
   state.pending = [];
   state.pendingTotal = 0;
   state.companies = new Map();
   state.selected = null;
-  state.selectedPath = null;
+  state.selectedId = null;
   state.reviewId = null;
   loginView.hidden = false;
   appView.hidden = true;
@@ -419,18 +406,14 @@ async function handleApprove(event) {
     if (errors.length) throw new Error(errors.join('；'));
 
     const review = buildReview(draft);
-    await publishReview({
-      client: state.client,
-      config,
-      submission: item.raw,
-      review,
-      company,
-      pendingPath: item.path,
-      pendingSha: item.sha,
-      reviewer: state.user.login,
-    });
+    await publishReview({ client: state.client, config, review, company });
+    try {
+      await state.api.approve(item.id, { reviewId: review.id, companyId: company.id });
+    } catch (error) {
+      throw new Error(`已写入公开仓 ${review.id}，但审核状态记录失败，请重试「通过并发布」。${error.message}`);
+    }
 
-    state.pending = state.pending.filter(entry => entry.path !== item.path);
+    state.pending = state.pending.filter(entry => entry.id !== item.id);
     state.pendingTotal = Math.max(0, state.pendingTotal - 1);
     showEmptyDetail();
     setStatus(globalStatus, `已发布 ${review.id} → ${review.companyId}`);
@@ -458,16 +441,8 @@ async function handleReject() {
   setBusy(true);
   setStatus(detailStatus, '正在拒绝…');
   try {
-    await rejectSubmission({
-      client: state.client,
-      config,
-      submission: item.raw,
-      pendingPath: item.path,
-      pendingSha: item.sha,
-      reason: reason.trim(),
-      reviewer: state.user.login,
-    });
-    state.pending = state.pending.filter(entry => entry.path !== item.path);
+    await state.api.reject(item.id, { reason: reason.trim() });
+    state.pending = state.pending.filter(entry => entry.id !== item.id);
     state.pendingTotal = Math.max(0, state.pendingTotal - 1);
     showEmptyDetail();
     setStatus(globalStatus, `已拒绝 ${item.raw.submissionId}`);

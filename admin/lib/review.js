@@ -53,29 +53,6 @@ export function parseSubmission(raw) {
   };
 }
 
-export function listPendingPaths(tree, pendingDir) {
-  return (tree?.tree || [])
-    .filter(item => item.type === 'blob' && item.path.startsWith(`${pendingDir}/`) && item.path.endsWith('.json'))
-    .map(item => item.path);
-}
-
-export function rejectedPath(path) {
-  return path.replace('/pending/', '/rejected/');
-}
-
-export function auditEntry({ action, reviewer, submissionId, reviewId, companyId, projectId, reason }) {
-  return JSON.stringify({
-    at: new Date().toISOString(),
-    action,
-    reviewer,
-    submissionId,
-    ...(reviewId ? { reviewId } : {}),
-    ...(companyId ? { companyId } : {}),
-    ...(projectId ? { projectId } : {}),
-    ...(reason ? { reason } : {}),
-  });
-}
-
 function taxonomyKeys(taxonomy, name) {
   return new Set((taxonomy?.[name] || []).map(item => item.key));
 }

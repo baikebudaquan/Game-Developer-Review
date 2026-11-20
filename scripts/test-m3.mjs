@@ -1,10 +1,9 @@
 import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
+import { DatabaseSync } from 'node:sqlite';
 import {
   newReviewId,
   parseSubmission,
-  listPendingPaths,
-  rejectedPath,
-  auditEntry,
   validateDraft,
   validateCompany,
   buildReview,
@@ -12,7 +11,12 @@ import {
   mergeCompany,
   today,
 } from '../admin/lib/review.js';
-import { publishReview, rejectSubmission } from '../admin/lib/publish.js';
+import { publishReview } from '../admin/lib/publish.js';
+import {
+  listSubmissions,
+  approveSubmission,
+  rejectSubmission,
+} from '../admin/functions/_lib/store.js';
 
 const taxonomy = {
   roles: [{ key: 'program', label: '程序' }],
@@ -78,25 +82,14 @@ const view = parseSubmission(raw);
 assert.equal(view.company, '云岬互动');
 assert.deepEqual(view.flags, ['fast_submit']);
 
-const tree = { tree: [
-  { type: 'blob', path: 'submissions/pending/2026/11/a.json' },
-  { type: 'tree', path: 'submissions/pending/2026' },
-  { type: 'blob', path: 'submissions/rejected/2026/11/b.json' },
-] };
-assert.deepEqual(listPendingPaths(tree, 'submissions/pending'), ['submissions/pending/2026/11/a.json']);
-assert.equal(rejectedPath('submissions/pending/2026/11/a.json'), 'submissions/rejected/2026/11/a.json');
-
-const audit = auditEntry({ action: 'approve', reviewer: 'devA', submissionId: 'sub', reviewId: 'rv_1', companyId: 'c_x' });
-assert.ok(audit.includes('"action":"approve"'));
-assert.ok(!audit.includes('正文'));
-
-function mockClient() {
+// 发布：单次原子提交，且重复调用不再写公开仓
+function mockClient({ reviewExists = false } = {}) {
   const calls = [];
   return {
     calls,
     async getFile(owner, repo, path) {
       calls.push(['getFile', repo, path]);
-      return null;
+      return reviewExists ? { path, sha: 'sha', content: '{}' } : null;
     },
     async getRef() { calls.push(['getRef']); return { object: { sha: 'base-sha' } }; },
     async getCommit() { calls.push(['getCommit']); return { tree: { sha: 'base-tree' } }; },
@@ -104,33 +97,21 @@ function mockClient() {
     async createTree(owner, repo, body) { calls.push(['createTree', body]); return { sha: 'new-tree' }; },
     async createCommit(owner, repo, body) { calls.push(['createCommit', body]); return { sha: 'new-commit' }; },
     async patchRef(owner, repo, branch, sha) { calls.push(['patchRef', branch, sha]); },
-    async deleteFile(owner, repo, path, options) { calls.push(['deleteFile', repo, path, options.sha]); },
-    async putFile(owner, repo, path, options) { calls.push(['putFile', repo, path, options.content]); },
+    async putFile() { calls.push(['putFile']); },
+    async deleteFile() { calls.push(['deleteFile']); },
   };
 }
 
 const config = {
   owner: 'owner',
   publicRepo: 'public',
-  stagingRepo: 'staging',
   publicBranch: 'main',
-  stagingBranch: 'main',
   companiesDir: 'data/companies',
   reviewsDir: 'data/reviews',
-  auditDir: 'audit',
 };
 
 const client = mockClient();
-const result = await publishReview({
-  client,
-  config,
-  submission: raw,
-  review,
-  company,
-  pendingPath: 'submissions/pending/2026/11/' + raw.submissionId + '.json',
-  pendingSha: 'pending-sha',
-  reviewer: 'devA',
-});
+const result = await publishReview({ client, config, review, company });
 assert.equal(result.published, true);
 const treeCall = client.calls.find(call => call[0] === 'createTree');
 assert.deepEqual(treeCall[1].tree.map(item => item.path).sort(), [
@@ -140,22 +121,72 @@ assert.deepEqual(treeCall[1].tree.map(item => item.path).sort(), [
 const commitCall = client.calls.find(call => call[0] === 'createCommit');
 assert.ok(commitCall[1].message.includes('data: add review'));
 assert.ok(client.calls.some(call => call[0] === 'patchRef' && call[2] === 'new-commit'));
-assert.ok(client.calls.some(call => call[0] === 'deleteFile' && call[1] === 'staging'));
-assert.ok(client.calls.some(call => call[0] === 'putFile' && call[2].startsWith('audit/')));
+assert.ok(!client.calls.some(call => call[0] === 'deleteFile'));
 
-const rejectClient = mockClient();
-const rejected = await rejectSubmission({
-  client: rejectClient,
-  config,
-  submission: raw,
-  pendingPath: 'submissions/pending/2026/11/' + raw.submissionId + '.json',
-  pendingSha: 'pending-sha',
-  reason: '包含联系方式',
-  reviewer: 'devA',
-});
-assert.equal(rejected.targetPath, 'submissions/rejected/2026/11/' + raw.submissionId + '.json');
-assert.ok(rejectClient.calls.some(call => call[0] === 'putFile' && call[2] === rejected.targetPath));
-assert.ok(rejectClient.calls.some(call => call[0] === 'deleteFile' && call[2].includes('/pending/')));
-assert.ok(rejectClient.calls.some(call => call[0] === 'putFile' && call[2].startsWith('audit/')));
+const replay = await publishReview({ client: mockClient({ reviewExists: true }), config, review, company });
+assert.equal(replay.published, false);
+
+// D1 审核状态：用内存 SQLite 跑真实迁移
+class TestDb {
+  constructor() {
+    this.db = new DatabaseSync(':memory:');
+    this.db.exec(readFileSync(new URL('../survey/migrations/0001_submissions.sql', import.meta.url), 'utf8'));
+  }
+  prepare(sql) {
+    const statement = this.db.prepare(sql);
+    return {
+      params: [],
+      bind(...params) { this.params = params; return this; },
+      all() { return { results: statement.all(...this.params) }; },
+      first() { return statement.get(...this.params) ?? null; },
+      run() { return { meta: { changes: Number(statement.run(...this.params).changes) } }; },
+    };
+  }
+}
+
+const db = new TestDb();
+const insert = (id, submittedAt, flags = '') => db.prepare(
+  'INSERT INTO submissions (id, payload, status, flags, ip_hash, dedupe_hash, created_at) VALUES (?, ?, ?, ?, ?, ?, ?)',
+).bind(
+  id,
+  JSON.stringify({ ...raw, submissionId: id, submittedAt }),
+  'pending',
+  flags,
+  'iphash',
+  'dedupe',
+  submittedAt,
+).run();
+
+insert('11111111-1111-4111-8111-111111111111', '2026-11-20T09:00:00.000Z', 'fast_submit');
+insert('22222222-2222-4222-8222-222222222222', '2026-11-20T10:00:00.000Z');
+
+const pending = await listSubmissions(db, { status: 'pending' });
+assert.equal(pending.total, 2);
+assert.equal(pending.items.length, 2);
+assert.equal(pending.items[0].id, '22222222-2222-4222-8222-222222222222');
+assert.deepEqual(pending.items[1].flags, ['fast_submit']);
+
+assert.equal((await approveSubmission(db, { id: pending.items[0].id, reviewId: 'bad', companyId: 'c_x', reviewer: 'devA' })).code, 'invalid');
+assert.equal((await approveSubmission(db, { id: '33333333-3333-4333-8333-333333333333', reviewId: 'rv_1', companyId: 'c_x', reviewer: 'devA' })).code, 'not_found');
+
+const approved = await approveSubmission(db, { id: pending.items[0].id, reviewId: 'rv_1', companyId: 'c_cloudcape', reviewer: 'devA' });
+assert.equal(approved.ok, true);
+assert.equal(db.prepare("SELECT COUNT(*) AS count FROM audit_log WHERE action = 'approve'").first().count, 1);
+assert.deepEqual(await approveSubmission(db, { id: pending.items[0].id, reviewId: 'rv_1', companyId: 'c_cloudcape', reviewer: 'devA' }), { ok: true, status: 'approved' });
+assert.equal(db.prepare("SELECT COUNT(*) AS count FROM audit_log WHERE action = 'approve'").first().count, 1);
+assert.equal((await approveSubmission(db, { id: pending.items[0].id, reviewId: 'rv_2', companyId: 'c_cloudcape', reviewer: 'devA' })).code, 'conflict');
+
+const rejected = await rejectSubmission(db, { id: pending.items[1].id, reason: '包含联系方式', reviewer: 'devA' });
+assert.equal(rejected.ok, true);
+assert.equal(db.prepare('SELECT reject_reason FROM submissions WHERE id = ?').bind(pending.items[1].id).first().reject_reason, '包含联系方式');
+assert.equal(db.prepare("SELECT COUNT(*) AS count FROM audit_log WHERE action = 'reject'").first().count, 1);
+assert.deepEqual(await rejectSubmission(db, { id: pending.items[1].id, reason: '再拒绝一次', reviewer: 'devA' }), { ok: true, status: 'rejected' });
+assert.equal(db.prepare("SELECT COUNT(*) AS count FROM audit_log WHERE action = 'reject'").first().count, 1);
+assert.equal((await rejectSubmission(db, { id: pending.items[0].id, reason: '已发布', reviewer: 'devA' })).code, 'conflict');
+assert.equal((await rejectSubmission(db, { id: pending.items[1].id, reason: '  ', reviewer: 'devA' })).code, 'invalid');
+
+assert.equal((await listSubmissions(db, { status: 'pending' })).total, 0);
+assert.equal((await listSubmissions(db, { status: 'approved' })).total, 1);
+assert.equal((await listSubmissions(db, { status: 'rejected' })).total, 1);
 
 console.log('M3 审核与发布流程测试通过');
