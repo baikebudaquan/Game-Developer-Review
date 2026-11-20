@@ -61,6 +61,8 @@ Game-Developer-Review 是一个游戏行业的匿名评价平台。你可以匿�
 
 审核通过后，本地控制台会自动从 `main` 拉取最新数据、构建并部署展示站；没有配置部署密钥的管理员也可以只完成审核。
 
+**环境分工**：`main` 是正式环境，只包含真实数据，发布到 GitHub Pages；`dev` 额外带 `data-test/` 测试数据，发布到 Cloudflare 预览。审核通过后，两边会同步更新。
+
 ## 项目组成
 
 | 模块 | 作用 |
@@ -134,8 +136,9 @@ GitHub 的细粒度令牌不支持写别人的个人仓库，协作者请用 cla
 
 ### 更新展示站
 
-- 本机 `.secrets/cloudflare.env` 配置了 `CLOUDFLARE_API_TOKEN` 时，通过审核后会自动构建并部署展示站
-- 没有配置时只完成审核，可点工具栏的「更新展示站」手动触发
+- 审核通过后会提交到 `main`，GitHub Pages 正式站自动构建更新
+- 本机配置了 `CLOUDFLARE_API_TOKEN` 时，还会额外构建一份带 `data-test/` 的 Cloudflare 预览并部署
+- 没有配置 token 时只更新 GitHub Pages；Cloudflare 预览可稍后点工具栏的「更新展示站」手动触发
 - 自动部署从 `origin/main` 拉最新数据，不会使用本地未提交的修改
 
 可选配置（文件在仓库外）：
