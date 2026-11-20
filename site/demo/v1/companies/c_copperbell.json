@@ -1,0 +1,73 @@
+{
+  "schemaVersion": 1,
+  "company": {
+    "id": "c_copperbell",
+    "slug": "copperbell",
+    "name": "铜铃互动",
+    "aliases": [
+      "Copperbell Interactive"
+    ],
+    "reviewCount": 2,
+    "avgScore": 3.5,
+    "scoreDistribution": {
+      "1": 0,
+      "2": 0,
+      "3": 1,
+      "4": 1,
+      "5": 0
+    }
+  },
+  "projects": [
+    {
+      "id": "p_bell",
+      "name": "钟楼第七拍",
+      "status": "dev",
+      "reviewCount": 2,
+      "avgScore": 3.5
+    }
+  ],
+  "byProfile": {
+    "role": [],
+    "tenure": [],
+    "employment": [],
+    "city": []
+  },
+  "reviews": [
+    {
+      "schemaVersion": 1,
+      "id": "rv_01KADEV0000000000000000014",
+      "companyId": "c_copperbell",
+      "projectId": "p_bell",
+      "score": 4,
+      "title": "节奏提示能跟着实机调",
+      "comment": "音乐和关卡共用同一套节拍标记。我带着耳机在测试机上点几遍，延迟偏多少，策划也能当场听出来。",
+      "profile": {
+        "role": "audio",
+        "tenure": "3-5y"
+      },
+      "tags": [
+        "project"
+      ],
+      "publishedAt": "2026-11-13",
+      "revision": 1
+    },
+    {
+      "schemaVersion": 1,
+      "id": "rv_01KADEV0000000000000000015",
+      "companyId": "c_copperbell",
+      "projectId": "p_bell",
+      "score": 3,
+      "title": "蓝牙延迟的回归条件还差一点",
+      "comment": "最初的缺陷单只写了耳机型号，换手机就复现不了。最近模板开始记录系统版本，交接顺了不少。",
+      "profile": {
+        "role": "qa",
+        "tenure": "lt1y"
+      },
+      "tags": [
+        "management"
+      ],
+      "publishedAt": "2026-09-30",
+      "revision": 1
+    }
+  ]
+}

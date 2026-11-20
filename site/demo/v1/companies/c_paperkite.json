@@ -1,0 +1,91 @@
+{
+  "schemaVersion": 1,
+  "company": {
+    "id": "c_paperkite",
+    "slug": "paperkite",
+    "name": "纸鸢像素",
+    "aliases": [
+      "Paper Kite Pixel"
+    ],
+    "reviewCount": 3,
+    "avgScore": 4.3,
+    "scoreDistribution": {
+      "1": 0,
+      "2": 0,
+      "3": 0,
+      "4": 2,
+      "5": 1
+    }
+  },
+  "projects": [
+    {
+      "id": "p_kite",
+      "name": "风筝修理铺",
+      "status": "live",
+      "reviewCount": 3,
+      "avgScore": 4.3
+    }
+  ],
+  "byProfile": {
+    "role": [],
+    "tenure": [],
+    "employment": [],
+    "city": []
+  },
+  "reviews": [
+    {
+      "schemaVersion": 1,
+      "id": "rv_01KADEV0000000000000000011",
+      "companyId": "c_paperkite",
+      "projectId": "p_kite",
+      "score": 5,
+      "title": "关卡盲测看得到玩家在哪儿停下",
+      "comment": "每轮盲测后，我们会先圈出玩家第一次松开牵线键的位置。这次把风向旗挪到起跳点前，第二批玩家很少再掉进同一个坑。",
+      "profile": {
+        "role": "design",
+        "tenure": "1-3y"
+      },
+      "tags": [
+        "project"
+      ],
+      "publishedAt": "2026-11-17",
+      "revision": 1
+    },
+    {
+      "schemaVersion": 1,
+      "id": "rv_01KADEV0000000000000000012",
+      "companyId": "c_paperkite",
+      "projectId": "p_kite",
+      "score": 4,
+      "title": "换色方案能在真机上并排看",
+      "comment": "组里留了几台旧手机对比昼夜配色。我做的夜景在低亮度下看不清线轴，现场改完就能交给策划重测。",
+      "profile": {
+        "role": "art",
+        "tenure": "3-5y"
+      },
+      "tags": [
+        "management"
+      ],
+      "publishedAt": "2026-10-26",
+      "revision": 1
+    },
+    {
+      "schemaVersion": 1,
+      "id": "rv_01KADEV0000000000000000013",
+      "companyId": "c_paperkite",
+      "projectId": "p_kite",
+      "score": 4,
+      "title": "发版值班能提前调换",
+      "comment": "值班表提前两周发出来，临时有事可以和同事换班。上次周末跟包，周一的补休也如约排上了。",
+      "profile": {
+        "role": "program",
+        "tenure": "1-3y"
+      },
+      "tags": [
+        "welfare"
+      ],
+      "publishedAt": "2026-09-14",
+      "revision": 1
+    }
+  ]
+}

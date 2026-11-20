@@ -1,0 +1,80 @@
+{
+  "schemaVersion": 1,
+  "company": {
+    "id": "c_glowharbor",
+    "slug": "glowharbor",
+    "name": "萤港工作室",
+    "aliases": [
+      "Glow Harbor Studio"
+    ],
+    "reviewCount": 2,
+    "avgScore": 4,
+    "scoreDistribution": {
+      "1": 0,
+      "2": 0,
+      "3": 0,
+      "4": 2,
+      "5": 0
+    }
+  },
+  "projects": [
+    {
+      "id": "p_lantern",
+      "name": "灯塔来信",
+      "status": "dev",
+      "reviewCount": 1,
+      "avgScore": 4
+    },
+    {
+      "id": "p_fog",
+      "name": "雾海列车",
+      "status": "live",
+      "reviewCount": 1,
+      "avgScore": 4
+    }
+  ],
+  "byProfile": {
+    "role": [],
+    "tenure": [],
+    "employment": [],
+    "city": []
+  },
+  "reviews": [
+    {
+      "schemaVersion": 1,
+      "id": "rv_01KADEV0000000000000000008",
+      "companyId": "c_glowharbor",
+      "projectId": "p_lantern",
+      "score": 4,
+      "title": "声音需求能提前参与",
+      "comment": "做场景白盒时就可以放进临时音轨，跟关卡一起试听空间感。后期调整镜头时，希望变更通知更完整。",
+      "profile": {
+        "role": "audio",
+        "tenure": "1-3y"
+      },
+      "tags": [
+        "project"
+      ],
+      "publishedAt": "2026-11-07",
+      "revision": 1
+    },
+    {
+      "schemaVersion": 1,
+      "id": "rv_01KADEV0000000000000000009",
+      "companyId": "c_glowharbor",
+      "projectId": "p_fog",
+      "score": 4,
+      "title": "工具维护有固定时间",
+      "comment": "每轮迭代有半天做工具整理，把常见配置错误做成提示后，同事自己就能定位大部分问题。",
+      "profile": {
+        "role": "program",
+        "tenure": "3-5y"
+      },
+      "tags": [
+        "welfare"
+      ],
+      "publishedAt": "2026-10-13",
+      "revision": 1
+    }
+  ]
+}

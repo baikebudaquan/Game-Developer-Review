@@ -1,0 +1,121 @@
+{
+  "schemaVersion": 1,
+  "roles": [
+    {
+      "key": "design",
+      "label": "策划"
+    },
+    {
+      "key": "program",
+      "label": "程序"
+    },
+    {
+      "key": "art",
+      "label": "美术"
+    },
+    {
+      "key": "audio",
+      "label": "音频"
+    },
+    {
+      "key": "ops",
+      "label": "运营"
+    },
+    {
+      "key": "qa",
+      "label": "测试"
+    },
+    {
+      "key": "pm",
+      "label": "项目管理"
+    },
+    {
+      "key": "other",
+      "label": "其他"
+    }
+  ],
+  "tenures": [
+    {
+      "key": "lt1y",
+      "label": "1 年以内"
+    },
+    {
+      "key": "1-3y",
+      "label": "1–3 年"
+    },
+    {
+      "key": "3-5y",
+      "label": "3–5 年"
+    },
+    {
+      "key": "gt5y",
+      "label": "5 年以上"
+    }
+  ],
+  "employments": [
+    {
+      "key": "current",
+      "label": "在职"
+    },
+    {
+      "key": "former",
+      "label": "已离职"
+    },
+    {
+      "key": "intern",
+      "label": "实习"
+    }
+  ],
+  "cities": [
+    {
+      "key": "beijing",
+      "label": "北京"
+    },
+    {
+      "key": "shanghai",
+      "label": "上海"
+    },
+    {
+      "key": "guangzhou",
+      "label": "广州"
+    },
+    {
+      "key": "shenzhen",
+      "label": "深圳"
+    },
+    {
+      "key": "chengdu",
+      "label": "成都"
+    },
+    {
+      "key": "hangzhou",
+      "label": "杭州"
+    },
+    {
+      "key": "other",
+      "label": "其他"
+    }
+  ],
+  "tags": [
+    {
+      "key": "overtime",
+      "label": "加班"
+    },
+    {
+      "key": "management",
+      "label": "管理"
+    },
+    {
+      "key": "welfare",
+      "label": "福利"
+    },
+    {
+      "key": "project",
+      "label": "项目质量"
+    },
+    {
+      "key": "layoff",
+      "label": "裁员"
+    }
+  ]
+}
