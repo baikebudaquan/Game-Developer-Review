@@ -7,7 +7,9 @@ export class ApiError extends Error {
   }
 }
 
-export function createApi(token, base = '/api/admin') {
+const DEFAULT_BASE = '/api/admin';
+
+export function createApi(token, base = DEFAULT_BASE) {
   if (!token) throw new Error('缺少登录凭证');
 
   async function request(path, { method = 'GET', body } = {}) {

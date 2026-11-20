@@ -97,7 +97,26 @@ button.danger { background: var(--danger); }
 
 .list { padding: .5rem; max-height: 72vh; overflow: auto; }
 
-.list button.item {
+.tabs { display: flex; gap: .35rem; padding: .25rem .25rem .55rem; margin-bottom: .5rem; border-bottom: 1px solid var(--line); }
+
+.tab { flex: 1; padding: .45rem .6rem; border-radius: 7px; background: transparent; color: var(--muted); font-weight: 600; }
+.tab.active { background: #eef7f1; color: var(--accent); }
+
+.staged-bar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: .5rem;
+  padding: .35rem .25rem .65rem;
+  margin-bottom: .4rem;
+  border-bottom: 1px solid var(--line);
+  color: var(--muted);
+  font-size: .82rem;
+}
+
+.staged-bar button { padding: .4rem .7rem; font-size: .85rem; }
+
+.list .item {
   display: block;
   width: 100%;
   margin-bottom: .4rem;
@@ -110,8 +129,9 @@ button.danger { background: var(--danger); }
   font-weight: 400;
 }
 
-.list button.item:hover { border-color: var(--line); }
+.list .item:hover { border-color: var(--line); }
 .list button.item.active { border-color: var(--accent); background: #eef7f1; }
+.list .item button.small { margin-top: .4rem; padding: .25rem .6rem; font-size: .78rem; }
 .list .item-head { display: flex; justify-content: space-between; gap: .5rem; }
 .list .item-head strong { font-size: .95rem; }
 .list .item-meta { color: var(--muted); font-size: .82rem; }
@@ -181,4 +201,5 @@ legend { padding: 0 .35rem; color: var(--muted); font-size: .85rem; }
   }
   .summary { background: #23302a; }
   .list button.item.active { background: #233a2e; }
+  .tab.active { background: #233a2e; }
 }

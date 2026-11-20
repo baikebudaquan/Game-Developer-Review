@@ -11,11 +11,12 @@ import {
   mergeCompany,
   validateDraft,
   validateCompany,
-  slugify,
+  autoSlug,
 } from './lib/review.js';
-import { publishReview } from './lib/publish.js';
+import { publishReview, publishReviews } from './lib/publish.js';
 
 const TOKEN_KEY = 'gdr.admin.token';
+const STAGING_KEY = 'gdr.admin.staging';
 
 const $ = selector => document.querySelector(selector);
 const loginView = $('#login-view');
@@ -31,6 +32,12 @@ const deployButton = $('#deploy-button');
 const localMode = ['127.0.0.1', 'localhost', '::1'].includes(location.hostname);
 const pendingList = $('#pending-list');
 const pendingCount = $('#pending-count');
+const tabPending = $('#tab-pending');
+const tabStaged = $('#tab-staged');
+const stagedBar = $('#staged-bar');
+const stagedSummary = $('#staged-summary');
+const publishBatchButton = $('#publish-batch-button');
+const stageButton = $('#stage-button');
 const detailEmpty = $('#detail-empty');
 const reviewForm = $('#review-form');
 const summaryEl = $('#submission-summary');
@@ -64,6 +71,8 @@ const state = {
   companies: new Map(),
   pending: [],
   pendingTotal: 0,
+  staging: loadStaging(),
+  tab: 'pending',
   selected: null,
   selectedId: null,
   reviewId: null,
@@ -92,6 +101,7 @@ function setStatus(element, message, isError = false) {
 }
 
 function describeError(error) {
+  if (error instanceof TypeError) return '无法连接审核 API，请确认本地控制台窗口仍在运行，或网络能访问 gdr-admin.pages.dev（必要时开启代理后刷新）。';
   if (error.status === 401) return error.body?.message || 'token 已失效或权限不足，请重新登录。';
   if (error.status === 403) return error.body?.message || '没有仓库写权限，请检查 token 权限。';
   if (error.status === 404) return error.body?.message || '仓库或文件不存在，请检查配置与权限。';
@@ -124,34 +134,96 @@ function renderTaxonomyOptions() {
     h('label', {}, h('input', { type: 'checkbox', value: tag.key }), tag.label)));
 }
 
+function loadStaging() {
+  try {
+    const data = JSON.parse(localStorage.getItem(STAGING_KEY) || '[]');
+    return Array.isArray(data)
+      ? data.filter(entry => entry?.submissionId && entry.review?.id && entry.company?.id)
+      : [];
+  } catch {
+    return [];
+  }
+}
+
+function saveStaging() {
+  localStorage.setItem(STAGING_KEY, JSON.stringify(state.staging));
+}
+
+function projectName(review, company) {
+  return (company.projects || []).find(project => project.id === review.projectId)?.name || '';
+}
+
 function renderList() {
   const query = filterInput.value.trim().toLowerCase();
-  const items = state.pending.filter(item => {
-    if (!query) return true;
-    return `${item.view.company} ${item.view.project}`.toLowerCase().includes(query);
-  });
+  const staged = state.tab === 'staged';
+  const stagedIds = new Set(state.staging.map(entry => entry.submissionId));
+  const visiblePending = state.pending.filter(item => !stagedIds.has(item.id));
+  const totalPending = Math.max(0, state.pendingTotal - (state.pending.length - visiblePending.length));
+
+  tabPending.classList.toggle('active', !staged);
+  tabStaged.classList.toggle('active', staged);
+  tabPending.textContent = `待审 ${totalPending}`;
+  tabStaged.textContent = `暂存 ${state.staging.length}`;
+  stagedBar.hidden = !staged || !state.staging.length;
+  stagedSummary.textContent = `共 ${state.staging.length} 条，合并为一次提交`;
+
+  const matches = (company, project) => !query || `${company} ${project}`.toLowerCase().includes(query);
+  const items = staged
+    ? state.staging.filter(entry => matches(entry.company.name || '', projectName(entry.review, entry.company)))
+    : visiblePending.filter(item => matches(item.view.company || '', item.view.project || ''));
 
   pendingList.replaceChildren();
   if (!items.length) {
-    pendingList.append(h('p', { class: 'empty' }, query ? '没有匹配项' : '暂无待审提交'));
+    pendingList.append(h('p', { class: 'empty' }, query ? '没有匹配项' : staged ? '暂存区为空' : '暂无待审提交'));
   }
-  items.forEach(item => {
-    pendingList.append(h('button', {
-      type: 'button',
-      class: 'item' + (item.id === state.selectedId ? ' active' : ''),
-      onClick: () => selectItem(item),
-    },
-      h('div', { class: 'item-head' },
-        h('strong', {}, item.view.company || '（未填公司）'),
-        h('span', {}, `${item.view.score} 分`)),
-      h('div', { class: 'item-meta' }, [item.view.project, (item.raw.submittedAt || '').slice(0, 10)].filter(Boolean).join(' · ')),
-      item.view.flags.length ? h('div', { class: 'flags' }, item.view.flags.join(' · ')) : null,
-    ));
-  });
 
-  pendingCount.textContent = state.pendingTotal > state.pending.length
-    ? `显示 ${state.pending.length} / 共 ${state.pendingTotal} 条`
-    : `共 ${state.pending.length} 条`;
+  if (staged) {
+    items.forEach(entry => {
+      pendingList.append(h('div', { class: 'item' },
+        h('div', { class: 'item-head' },
+          h('strong', {}, entry.company.name || '（未填公司）'),
+          h('span', {}, `${entry.review.score} 分`)),
+        h('div', { class: 'item-meta' },
+          [projectName(entry.review, entry.company), (entry.stagedAt || '').slice(0, 10)].filter(Boolean).join(' · ')),
+        h('button', {
+          type: 'button',
+          class: 'ghost small',
+          onClick: () => unstageItem(entry.submissionId),
+        }, '移出暂存'),
+      ));
+    });
+  } else {
+    items.forEach(item => {
+      pendingList.append(h('button', {
+        type: 'button',
+        class: 'item' + (item.id === state.selectedId ? ' active' : ''),
+        onClick: () => selectItem(item),
+      },
+        h('div', { class: 'item-head' },
+          h('strong', {}, item.view.company || '（未填公司）'),
+          h('span', {}, `${item.view.score} 分`)),
+        h('div', { class: 'item-meta' }, [item.view.project, (item.raw.submittedAt || '').slice(0, 10)].filter(Boolean).join(' · ')),
+        item.view.flags.length ? h('div', { class: 'flags' }, item.view.flags.join(' · ')) : null,
+      ));
+    });
+  }
+
+  pendingCount.textContent = staged
+    ? `暂存 ${state.staging.length} 条`
+    : (totalPending > visiblePending.length ? `显示 ${visiblePending.length} / 共 ${totalPending} 条` : `共 ${visiblePending.length} 条`);
+  publishBatchButton.disabled = state.busy || !state.staging.length;
+}
+
+function setTab(tab) {
+  if (state.tab === tab) return;
+  state.tab = tab;
+  renderList();
+}
+
+function unstageItem(submissionId) {
+  state.staging = state.staging.filter(entry => entry.submissionId !== submissionId);
+  saveStaging();
+  renderList();
 }
 
 function toggleNewCompany() {
@@ -162,6 +234,47 @@ function toggleNewProject() {
   newProjectBox.hidden = projectSelect.value !== '__new';
 }
 
+function syncCompanyFields() {
+  const name = newCompanyName.value.trim();
+  if (newCompanySlug.dataset.touched !== '1') {
+    newCompanySlug.value = autoSlug(name);
+  }
+  if (newCompanyId.dataset.touched !== '1') {
+    newCompanyId.value = newCompanySlug.value ? `c_${newCompanySlug.value}` : 'c_';
+  }
+}
+
+function matchCompanyByName() {
+  const name = newCompanyName.value.trim();
+  const matched = name ? findCompany(name) : null;
+  if (!matched) return false;
+  const pendingProject = newProjectName.value.trim();
+  companySelect.value = matched.id;
+  toggleNewCompany();
+  renderProjectOptions(matched, pendingProject);
+  setStatus(detailStatus, `已匹配现有公司「${matched.name}」，无需新建`);
+  return true;
+}
+
+function syncProjectId() {
+  if (newProjectId.dataset.touched === '1') return;
+  const name = newProjectName.value.trim();
+  newProjectId.value = name ? `p_${autoSlug(name)}` : '';
+}
+
+function matchProjectByName() {
+  const name = newProjectName.value.trim();
+  const company = companySelect.value === '__new' ? null : state.companies.get(companySelect.value);
+  if (!name || !company) return false;
+  const target = name.toLowerCase();
+  const matched = company.projects.find(project => project.name.toLowerCase() === target);
+  if (!matched) return false;
+  projectSelect.value = matched.id;
+  toggleNewProject();
+  setStatus(detailStatus, `已匹配现有项目「${matched.name}」，无需新建`);
+  return true;
+}
+
 function renderProjectOptions(company, projectName) {
   projectSelect.replaceChildren(h('option', { value: '__none' }, '不关联项目'));
   (company?.projects || []).forEach(project => {
@@ -169,11 +282,13 @@ function renderProjectOptions(company, projectName) {
   });
   projectSelect.append(h('option', { value: '__new' }, '＋ 新建项目'));
 
-  const matched = company?.projects.find(project => project.name === projectName);
+  const target = String(projectName || '').trim().toLowerCase();
+  const matched = target ? company?.projects.find(project => project.name.toLowerCase() === target) : null;
   projectSelect.value = matched ? matched.id : (projectName ? '__new' : '__none');
 
   newProjectName.value = projectSelect.value === '__new' ? projectName : '';
-  newProjectId.value = '';
+  newProjectId.dataset.touched = '';
+  newProjectId.value = newProjectName.value.trim() ? `p_${autoSlug(newProjectName.value)}` : '';
   newProjectStatus.value = 'unknown';
   toggleNewProject();
 }
@@ -207,7 +322,8 @@ function renderDetail(item) {
   toggleNewCompany();
 
   newCompanyName.value = view.company || '';
-  newCompanySlug.value = slugify(view.company);
+  newCompanySlug.dataset.touched = '';
+  newCompanySlug.value = autoSlug(newCompanyName.value);
   newCompanyId.dataset.touched = '';
   newCompanyId.value = newCompanySlug.value ? `c_${newCompanySlug.value}` : 'c_';
 
@@ -257,7 +373,9 @@ function collectTags() {
 function setBusy(busy) {
   state.busy = busy;
   approveButton.disabled = busy;
+  stageButton.disabled = busy;
   rejectButton.disabled = busy;
+  publishBatchButton.disabled = busy || !state.staging.length;
   approveButton.textContent = busy ? '处理中…' : '通过并发布';
 }
 
@@ -347,6 +465,142 @@ function signOut(message = '') {
   setStatus(globalStatus, '');
 }
 
+function collectDraft() {
+  const projectChoice = projectSelect.value;
+  let newProject = null;
+  let projectId = '';
+  if (projectChoice === '__new') {
+    newProject = {
+      id: newProjectId.value.trim(),
+      name: newProjectName.value.trim(),
+      status: newProjectStatus.value,
+    };
+    projectId = newProject.id;
+  } else if (projectChoice !== '__none') {
+    projectId = projectChoice;
+  }
+
+  let company;
+  if (companySelect.value === '__new') {
+    const companyId = newCompanyId.value.trim();
+    if (state.companies.has(companyId)) throw new Error('公司 ID 已存在，请直接选择现有公司');
+    company = buildCompany({
+      id: companyId,
+      slug: newCompanySlug.value.trim(),
+      name: newCompanyName.value.trim(),
+      project: newProject,
+      date: today(),
+    });
+  } else {
+    const base = state.companies.get(companySelect.value);
+    if (!base) throw new Error('未找到公司');
+    if (newProject && base.projects.some(project => project.id === newProject.id)) {
+      throw new Error('项目 ID 已存在，请直接选择现有项目');
+    }
+    company = mergeCompany(base, { project: newProject, date: today() });
+  }
+
+  const draft = {
+    id: state.reviewId,
+    companyId: company.id,
+    projectId,
+    score: Number(scoreSelect.value),
+    title: titleInput.value.trim(),
+    comment: commentInput.value.trim(),
+    profile: collectProfile(),
+    tags: collectTags(),
+    publishedAt: today(),
+  };
+
+  const errors = [
+    ...validateCompany(company),
+    ...validateDraft(draft, { taxonomy: state.taxonomy, company }),
+  ];
+  if (errors.length) throw new Error(errors.join('；'));
+
+  return { review: buildReview(draft), company };
+}
+
+function handleStage() {
+  if (state.busy || !state.selected) return;
+  const item = state.selected;
+  try {
+    const { review, company } = collectDraft();
+    state.staging = state.staging.filter(entry => entry.submissionId !== item.id);
+    state.staging.push({ submissionId: item.id, review, company, stagedAt: new Date().toISOString() });
+    saveStaging();
+    showEmptyDetail();
+    setStatus(globalStatus, `已暂存 ${review.id}；到「暂存」标签可一次全部发布`);
+  } catch (error) {
+    setStatus(detailStatus, error.message, true);
+  }
+}
+
+async function updateShowcase() {
+  if (!localMode) return '';
+  try {
+    const response = await fetch('/api/local/deploy', { method: 'POST' });
+    const data = await response.json().catch(() => ({}));
+    return data.ok ? '；展示站已更新' : `；展示站未更新：${data.message || `HTTP ${response.status}`}`;
+  } catch (error) {
+    return `；展示站未更新：${error.message}`;
+  }
+}
+
+async function publishStaged() {
+  if (state.busy || !state.staging.length) return;
+  setBusy(true);
+  setStatus(globalStatus, `正在发布 ${state.staging.length} 条暂存…`);
+
+  try {
+    await publishReviews({
+      client: state.client,
+      config,
+      items: state.staging.map(({ review, company }) => ({ review, company })),
+    });
+
+    const failures = [];
+    const approved = new Set();
+    for (const entry of state.staging) {
+      try {
+        await state.api.approve(entry.submissionId, { reviewId: entry.review.id, companyId: entry.company.id });
+        approved.add(entry.submissionId);
+      } catch (error) {
+        failures.push(`${entry.review.id}：${describeError(error)}`);
+      }
+    }
+
+    state.staging = state.staging.filter(entry => !approved.has(entry.submissionId));
+    saveStaging();
+    const removed = state.pending.filter(item => approved.has(item.id)).length;
+    state.pending = state.pending.filter(item => !approved.has(item.id));
+    state.pendingTotal = Math.max(0, state.pendingTotal - removed);
+    if (!state.staging.length) state.tab = 'pending';
+
+    let deployNote = '';
+    if (approved.size) {
+      setStatus(globalStatus, '已写入公开仓，正在更新展示站…');
+      deployNote = await updateShowcase();
+    }
+
+    showEmptyDetail();
+    if (failures.length) {
+      setStatus(globalStatus, `已发布 ${approved.size} 条，${failures.length} 条状态记录失败（仍保留在暂存）：${failures.join('；')}`, true);
+    } else {
+      setStatus(globalStatus, `已发布 ${approved.size} 条${deployNote}`);
+    }
+  } catch (error) {
+    if (error.status === 401) {
+      signOut('登录已失效，请重新登录。');
+      return;
+    }
+    setStatus(globalStatus, describeError(error), true);
+  } finally {
+    setBusy(false);
+    renderList();
+  }
+}
+
 async function handleApprove(event) {
   event.preventDefault();
   if (state.busy || !state.selected) return;
@@ -356,59 +610,7 @@ async function handleApprove(event) {
   setStatus(detailStatus, '正在发布…');
 
   try {
-    const projectChoice = projectSelect.value;
-    let newProject = null;
-    let projectId = '';
-    if (projectChoice === '__new') {
-      newProject = {
-        id: newProjectId.value.trim(),
-        name: newProjectName.value.trim(),
-        status: newProjectStatus.value,
-      };
-      projectId = newProject.id;
-    } else if (projectChoice !== '__none') {
-      projectId = projectChoice;
-    }
-
-    let company;
-    if (companySelect.value === '__new') {
-      const companyId = newCompanyId.value.trim();
-      if (state.companies.has(companyId)) throw new Error('公司 ID 已存在，请直接选择现有公司');
-      company = buildCompany({
-        id: companyId,
-        slug: newCompanySlug.value.trim(),
-        name: newCompanyName.value.trim(),
-        project: newProject,
-        date: today(),
-      });
-    } else {
-      const base = state.companies.get(companySelect.value);
-      if (!base) throw new Error('未找到公司');
-      if (newProject && base.projects.some(project => project.id === newProject.id)) {
-        throw new Error('项目 ID 已存在，请直接选择现有项目');
-      }
-      company = mergeCompany(base, { project: newProject, date: today() });
-    }
-
-    const draft = {
-      id: state.reviewId,
-      companyId: company.id,
-      projectId,
-      score: Number(scoreSelect.value),
-      title: titleInput.value.trim(),
-      comment: commentInput.value.trim(),
-      profile: collectProfile(),
-      tags: collectTags(),
-      publishedAt: today(),
-    };
-
-    const errors = [
-      ...validateCompany(company),
-      ...validateDraft(draft, { taxonomy: state.taxonomy, company }),
-    ];
-    if (errors.length) throw new Error(errors.join('；'));
-
-    const review = buildReview(draft);
+    const { review, company } = collectDraft();
     await publishReview({ client: state.client, config, review, company });
     try {
       await state.api.approve(item.id, { reviewId: review.id, companyId: company.id });
@@ -419,13 +621,7 @@ async function handleApprove(event) {
     let deployNote = '';
     if (localMode) {
       setStatus(detailStatus, '已通过，正在更新展示站…');
-      try {
-        const response = await fetch('/api/local/deploy', { method: 'POST' });
-        const data = await response.json().catch(() => ({}));
-        deployNote = data.ok ? '；展示站已更新' : `；展示站未更新：${data.message || `HTTP ${response.status}`}`;
-      } catch (error) {
-        deployNote = `；展示站未更新：${error.message}`;
-      }
+      deployNote = await updateShowcase();
     }
 
     state.pending = state.pending.filter(entry => entry.id !== item.id);
@@ -511,6 +707,10 @@ refreshButton.addEventListener('click', async () => {
 });
 
 filterInput.addEventListener('input', renderList);
+tabPending.addEventListener('click', () => setTab('pending'));
+tabStaged.addEventListener('click', () => setTab('staged'));
+stageButton.addEventListener('click', handleStage);
+publishBatchButton.addEventListener('click', publishStaged);
 companySelect.addEventListener('change', () => {
   toggleNewCompany();
   renderProjectOptions(state.companies.get(companySelect.value) || null, '');
@@ -519,11 +719,21 @@ projectSelect.addEventListener('change', toggleNewProject);
 reviewForm.addEventListener('submit', handleApprove);
 rejectButton.addEventListener('click', handleReject);
 
+newCompanyName.addEventListener('input', () => {
+  if (matchCompanyByName()) return;
+  syncCompanyFields();
+});
 newCompanySlug.addEventListener('input', () => {
+  newCompanySlug.dataset.touched = '1';
   if (newCompanyId.dataset.touched === '1') return;
   newCompanyId.value = newCompanySlug.value ? `c_${newCompanySlug.value}` : 'c_';
 });
 newCompanyId.addEventListener('input', () => { newCompanyId.dataset.touched = '1'; });
+newProjectName.addEventListener('input', () => {
+  if (matchProjectByName()) return;
+  syncProjectId();
+});
+newProjectId.addEventListener('input', () => { newProjectId.dataset.touched = '1'; });
 
 const savedToken = sessionStorage.getItem(TOKEN_KEY);
 if (savedToken) signIn(savedToken, { silent: true });

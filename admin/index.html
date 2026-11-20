@@ -35,7 +35,17 @@
       </div>
 
       <div class="layout">
-        <aside id="pending-list" class="panel list" aria-label="待审列表"></aside>
+        <aside class="panel list" aria-label="待审列表">
+          <div class="tabs">
+            <button id="tab-pending" type="button" class="tab active">待审</button>
+            <button id="tab-staged" type="button" class="tab">暂存</button>
+          </div>
+          <div id="staged-bar" class="staged-bar" hidden>
+            <span id="staged-summary"></span>
+            <button id="publish-batch-button" type="button">全部发布</button>
+          </div>
+          <div id="pending-list"></div>
+        </aside>
 
         <section class="panel detail">
           <div id="detail-empty" class="empty">选择左侧一条待审提交</div>
@@ -109,6 +119,7 @@
 
             <div class="actions">
               <button id="approve-button" type="submit">通过并发布</button>
+              <button id="stage-button" type="button" class="ghost">暂存</button>
               <button id="reject-button" type="button" class="danger">拒绝</button>
             </div>
             <p id="detail-status" class="status" role="status"></p>
