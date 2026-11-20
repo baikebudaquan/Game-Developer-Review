@@ -168,6 +168,30 @@ npx wrangler pages deploy . --project-name gdr-admin --branch main
 
 审核控制台使用独立的 Pages 项目，`admin/functions/` 提供 `/api/admin/*` 接口。需要给该项目绑定 D1 变量 `DB`，并设置 `GITHUB_OWNER`、`GITHUB_REPO`（可选 `ADMIN_LOGINS`）。一期使用 `gdr-admin.pages.dev` 默认域名，后续接入自定义域名时再与问卷域隔离。凭据优先用 fine-grained PAT（Contents 读写）；如果控制台返回 403，再换 classic PAT（`repo` scope）。不要写入代码或提交到仓库。
 
+### 本地一键控制台
+
+仓库根目录双击 `start-admin.cmd`（需要 Node.js 18+）：
+
+1. 启动 `127.0.0.1:8787` 本地控制台并自动打开浏览器
+2. 把 `/api/admin/*` 代理到 `gdr-admin.pages.dev`，本地不保存任何服务端密钥
+3. 每位管理员粘贴自己的 GitHub PAT 登录
+
+通过审核后：
+
+- 数据提交到公开仓 `main`
+- 如果本机 `.secrets/cloudflare.env` 配置了 `CLOUDFLARE_API_TOKEN`，会自动从 `origin/main` 准备干净 worktree、构建并部署 `gdr-site`
+- 未配置 token 时只完成审核，不更新展示站；可稍后点「更新展示站」手动触发
+
+`.secrets/cloudflare.env`（仓库外）可选配置：
+
+```ini
+CLOUDFLARE_API_TOKEN=...
+CLOUDFLARE_ACCOUNT_ID=...
+GIT_PROXY=http://127.0.0.1:7897
+```
+
+`GIT_PROXY` 只在拉取 GitHub 需要代理时填写。
+
 ## 协作
 
 分支、提交信息、PR 与审核要求见[协作规范](docs/协作规范.md)。日常开发从 `dev` 拉 `feat/site-*`、`feat/survey-*`、`feat/admin-*` 等短命分支，合回 `dev` 后再随里程碑合入 `main`。
