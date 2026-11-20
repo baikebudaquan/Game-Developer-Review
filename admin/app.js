@@ -199,7 +199,8 @@ function renderDetail(item) {
     h('option', { value: '__new' }, '＋ 新建公司'),
   );
 
-  const matched = findCompany(view.company);
+  const hinted = view.companyId ? state.companies.get(view.companyId) : null;
+  const matched = hinted || findCompany(view.company);
   companySelect.value = matched ? matched.id : '__new';
   toggleNewCompany();
 

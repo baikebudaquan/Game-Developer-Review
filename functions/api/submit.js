@@ -107,6 +107,7 @@ export async function onRequestPost({ request, env }) {
     formVersion: '1.0',
     payload: {
       company: input.company,
+      ...(input.companyId ? { companyId: input.companyId } : {}),
       project: input.project || undefined,
       score: input.score,
       comment: input.comment,
