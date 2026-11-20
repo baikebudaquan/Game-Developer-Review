@@ -1,0 +1,30 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/baikebudaquan/Game-Developer-Review/schema/review.schema.json",
+  "title": "已审核评价",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schemaVersion", "id", "companyId", "score", "comment", "publishedAt", "revision"],
+  "properties": {
+    "schemaVersion": { "const": 1 },
+    "id": { "type": "string", "pattern": "^rv_[A-Za-z0-9]+$" },
+    "companyId": { "type": "string", "pattern": "^c_[a-z0-9_-]+$" },
+    "projectId": { "type": "string", "pattern": "^p_[a-z0-9_-]+$" },
+    "score": { "type": "integer", "minimum": 1, "maximum": 5 },
+    "title": { "type": "string", "maxLength": 40 },
+    "comment": { "type": "string", "minLength": 1, "maxLength": 2000 },
+    "profile": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "role": { "type": "string" },
+        "tenure": { "type": "string" },
+        "employment": { "type": "string" },
+        "city": { "type": "string" }
+      }
+    },
+    "tags": { "type": "array", "items": { "type": "string" }, "uniqueItems": true },
+    "publishedAt": { "type": "string", "format": "date" },
+    "revision": { "type": "integer", "minimum": 1 }
+  }
+}

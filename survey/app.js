@@ -1,0 +1,340 @@
+const form = document.querySelector('#submit-form');
+const statusEl = document.querySelector('#status');
+const submitButton = document.querySelector('#submit-button');
+const cancelButton = document.querySelector('#cancel-button');
+const successPanel = document.querySelector('#success-panel');
+const receiptEl = document.querySelector('#receipt');
+const againButton = document.querySelector('#again-button');
+const fallbackPanel = document.querySelector('#fallback-panel');
+const fallbackStatus = document.querySelector('#fallback-status');
+const copyButton = document.querySelector('#copy-button');
+const retryButton = document.querySelector('#retry-button');
+const deleteButton = document.querySelector('#delete-button');
+const mailLink = document.querySelector('#mail-link');
+const draftNote = document.querySelector('#draft-note');
+
+const FIELDS = ['company', 'project', 'score', 'comment', 'wish', 'role', 'tenure', 'employment', 'city'];
+const DRAFT_KEY = 'gdr.submission.draft.v1';
+const DRAFT_TTL = 7 * 24 * 60 * 60 * 1000;
+const POW_DIFFICULTY = 3;
+const REQUEST_TIMEOUT = 5000;
+const GLOBAL_TIMEOUT = 15000;
+
+let busy = false;
+let controller = null;
+let deadline = 0;
+let slowTimer = null;
+let startedAt = Date.now();
+let saveTimer = null;
+
+function setStatus(message, isError = false) {
+  statusEl.textContent = message;
+  statusEl.classList.toggle('error', isError);
+}
+
+function setFallbackStatus(message, isError = false) {
+  fallbackStatus.textContent = message;
+  fallbackStatus.classList.toggle('error', isError);
+}
+
+function setBusy(state) {
+  busy = state;
+  submitButton.disabled = state;
+  submitButton.textContent = state ? '提交中…' : '提交';
+  if (!state) cancelButton.hidden = true;
+}
+
+function randomHex(bytes = 16) {
+  return [...crypto.getRandomValues(new Uint8Array(bytes))]
+    .map(byte => byte.toString(16).padStart(2, '0'))
+    .join('');
+}
+
+function uuid() {
+  if (crypto.randomUUID) return crypto.randomUUID();
+  const bytes = crypto.getRandomValues(new Uint8Array(16));
+  bytes[6] = (bytes[6] & 0x0f) | 0x40;
+  bytes[8] = (bytes[8] & 0x3f) | 0x80;
+  const hex = [...bytes].map(byte => byte.toString(16).padStart(2, '0'));
+  return `${hex.slice(0, 4).join('')}-${hex.slice(4, 6).join('')}-${hex.slice(6, 8).join('')}-${hex.slice(8, 10).join('')}-${hex.slice(10).join('')}`;
+}
+
+async function sha256Hex(text) {
+  const digest = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(text));
+  return [...new Uint8Array(digest)].map(byte => byte.toString(16).padStart(2, '0')).join('');
+}
+
+async function solvePow() {
+  const challenge = randomHex(16);
+  const prefix = '0'.repeat(POW_DIFFICULTY);
+  let nonce = 0;
+  while (true) {
+    if ((await sha256Hex(`${challenge}:${nonce}`)).startsWith(prefix)) {
+      return { challenge, nonce: String(nonce) };
+    }
+    nonce += 1;
+    if (nonce % 500 === 0) await new Promise(resolve => setTimeout(resolve, 0));
+  }
+}
+
+function readFields() {
+  const values = {};
+  FIELDS.forEach(name => { values[name] = form.elements.namedItem(name)?.value ?? ''; });
+  values.website = form.elements.namedItem('website')?.value ?? '';
+  values.consent = form.elements.namedItem('consent')?.checked ?? false;
+  return values;
+}
+
+function fillFields(values) {
+  FIELDS.forEach(name => {
+    const field = form.elements.namedItem(name);
+    if (field && typeof values[name] === 'string') field.value = values[name];
+  });
+}
+
+function saveDraft() {
+  try {
+    localStorage.setItem(DRAFT_KEY, JSON.stringify({
+      savedAt: Date.now(),
+      submissionId: document.querySelector('#submissionId').value,
+      values: readFields(),
+    }));
+  } catch {
+    // 本地存储不可用时静默跳过
+  }
+}
+
+function scheduleSave() {
+  clearTimeout(saveTimer);
+  saveTimer = setTimeout(saveDraft, 300);
+}
+
+function restoreDraft() {
+  let draft = null;
+  try {
+    draft = JSON.parse(localStorage.getItem(DRAFT_KEY) || 'null');
+  } catch {
+    draft = null;
+  }
+  if (!draft || !draft.savedAt || Date.now() - draft.savedAt > DRAFT_TTL) {
+    localStorage.removeItem(DRAFT_KEY);
+    return;
+  }
+  fillFields(draft.values || {});
+  if (draft.submissionId) document.querySelector('#submissionId').value = draft.submissionId;
+  draftNote.hidden = false;
+  startedAt = Date.now();
+}
+
+function buildText() {
+  const values = readFields();
+  return [
+    `公司：${values.company}`,
+    values.project ? `项目：${values.project}` : '',
+    `评分：${values.score || '未填'}`,
+    `评价：${values.comment}`,
+    values.wish ? `希望被吐槽：${values.wish}` : '',
+    values.role ? `岗位：${values.role}` : '',
+    values.tenure ? `司龄：${values.tenure}` : '',
+    values.employment ? `状态：${values.employment}` : '',
+    values.city ? `城市：${values.city}` : '',
+  ].filter(Boolean).join('\n');
+}
+
+function updateMailLink() {
+  const email = document.body.dataset.fallbackEmail || '';
+  if (!email) {
+    mailLink.hidden = true;
+    return;
+  }
+  const subject = encodeURIComponent('游戏行业匿名评价提交');
+  mailLink.hidden = false;
+  mailLink.href = `mailto:${email}?subject=${subject}&body=${encodeURIComponent(buildText())}`;
+}
+
+async function post(payload, timeout) {
+  controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), timeout);
+  try {
+    const response = await fetch('/api/submit', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+      body: JSON.stringify(payload),
+      signal: controller.signal,
+    });
+    let body = null;
+    try { body = await response.json(); } catch { body = null; }
+    if (response.status === 202 && body?.ok) return body;
+    const error = new Error(body?.code || `HTTP ${response.status}`);
+    error.code = body?.code || '';
+    error.status = response.status;
+    error.fatal = [400, 403, 409, 413, 422, 429].includes(response.status);
+    throw error;
+  } finally {
+    clearTimeout(timer);
+    controller = null;
+  }
+}
+
+async function attempt(payload) {
+  const remaining = deadline - Date.now();
+  if (remaining <= 0) throw new Error('timeout');
+  return post(payload, Math.min(REQUEST_TIMEOUT, remaining));
+}
+
+function clearTimers() {
+  clearTimeout(slowTimer);
+  slowTimer = null;
+  cancelButton.hidden = true;
+  controller?.abort();
+  controller = null;
+}
+
+function showSuccess(submissionId) {
+  clearTimers();
+  setBusy(false);
+  setStatus('');
+  form.hidden = true;
+  fallbackPanel.hidden = true;
+  successPanel.hidden = false;
+  receiptEl.textContent = submissionId;
+  try { localStorage.removeItem(DRAFT_KEY); } catch { /* 忽略 */ }
+  window.scrollTo({ top: 0, behavior: 'smooth' });
+}
+
+function showFallback(message) {
+  clearTimers();
+  setBusy(false);
+  saveDraft();
+  updateMailLink();
+  fallbackPanel.hidden = false;
+  setStatus('');
+  setFallbackStatus(message || '内容已保存到本机。');
+  fallbackPanel.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+}
+
+form.addEventListener('input', scheduleSave);
+form.addEventListener('change', scheduleSave);
+
+form.addEventListener('submit', async event => {
+  event.preventDefault();
+  if (busy) return;
+  if (!form.reportValidity()) return;
+
+  setBusy(true);
+  deadline = Date.now() + GLOBAL_TIMEOUT;
+  if (!startedAt) startedAt = Date.now();
+
+  const idField = document.querySelector('#submissionId');
+  if (!idField.value) idField.value = uuid();
+
+  setStatus('正在准备校验…');
+  let pow;
+  try {
+    pow = await solvePow();
+  } catch {
+    setStatus('浏览器无法完成本地校验，请换一个浏览器或稍后重试。', true);
+    setBusy(false);
+    return;
+  }
+  document.querySelector('#challenge').value = pow.challenge;
+  document.querySelector('#nonce').value = pow.nonce;
+  document.querySelector('#elapsed').value = String(Math.max(0, Date.now() - startedAt));
+  document.querySelector('#js-flag').value = '1';
+
+  const payload = { ...readFields(), submissionId: idField.value, challenge: pow.challenge, nonce: pow.nonce, elapsed: Number(document.querySelector('#elapsed').value), js: true };
+
+  setStatus('正在提交…');
+  slowTimer = setTimeout(() => {
+    setStatus('网络较慢，仍在尝试…');
+    cancelButton.hidden = false;
+  }, 3000);
+
+  try {
+    await attempt(payload);
+    showSuccess(payload.submissionId);
+    return;
+  } catch (error) {
+    if (error.status === 429) {
+      clearTimers();
+      setBusy(false);
+      setStatus('提交太频繁，请稍后再试。', true);
+      return;
+    }
+    if (error.fatal && error.code !== 'UPSTREAM') {
+      clearTimers();
+      setBusy(false);
+      const messages = {
+        DUPLICATE: '同类内容近期已提交过。',
+        POW_FAILED: '本地校验未通过，请重新提交。',
+        FORBIDDEN: '当前来源不被允许。',
+        INVALID_INPUT: '内容格式不正确，请检查后重试。',
+      };
+      setStatus(messages[error.code] || '提交失败，请检查内容后重试。', true);
+      return;
+    }
+    if (Date.now() >= deadline) {
+      showFallback('等待超时，内容已保存到本机。');
+      return;
+    }
+    setStatus('正在重试…');
+  }
+
+  try {
+    await attempt(payload);
+    showSuccess(payload.submissionId);
+  } catch (error) {
+    if (error.status === 429) {
+      clearTimers();
+      setBusy(false);
+      setStatus('提交太频繁，请稍后再试。', true);
+      return;
+    }
+    if (error.fatal && error.code !== 'UPSTREAM') {
+      clearTimers();
+      setBusy(false);
+      setStatus('提交失败，请检查内容后重试。', true);
+      return;
+    }
+    showFallback('两次尝试都未成功，内容已保存到本机。');
+  }
+});
+
+cancelButton.addEventListener('click', () => showFallback('已取消等待，内容已保存到本机。'));
+
+againButton.addEventListener('click', () => {
+  form.reset();
+  form.hidden = false;
+  successPanel.hidden = true;
+  document.querySelector('#submissionId').value = '';
+  document.querySelector('#challenge').value = '';
+  document.querySelector('#nonce').value = '';
+  document.querySelector('#elapsed').value = '';
+  document.querySelector('#js-flag').value = '';
+  startedAt = Date.now();
+  setStatus('');
+  form.elements.namedItem('company')?.focus();
+});
+
+retryButton.addEventListener('click', () => {
+  fallbackPanel.hidden = true;
+  form.requestSubmit();
+});
+
+copyButton.addEventListener('click', async () => {
+  try {
+    await navigator.clipboard.writeText(buildText());
+    setFallbackStatus('已复制到剪贴板。');
+  } catch {
+    setFallbackStatus('复制失败，请手动选择表单内容复制。', true);
+  }
+});
+
+deleteButton.addEventListener('click', () => {
+  try { localStorage.removeItem(DRAFT_KEY); } catch { /* 忽略 */ }
+  fallbackPanel.hidden = true;
+  setStatus('本地副本已删除。');
+});
+
+restoreDraft();
+updateMailLink();

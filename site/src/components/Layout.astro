@@ -1,0 +1,24 @@
+---
+import '../styles/site.css';
+import Mark from './Mark.astro';
+import { href, isDemo } from '../lib/data';
+const { title } = Astro.props;
+---
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8" /><meta name="viewport" content="width=device-width,initial-scale=1" />
+    <meta name="theme-color" content="#17192c" />
+    <title>{title} · 开发者手记</title>
+  </head>
+  <body>
+    <a class="skip" href="#content">跳到正文</a>
+    <header class="topbar"><div class="shell bar-inner">
+      <a class="brand" href={href()}><Mark />开发者手记</a>
+      <nav aria-label="主导航"><a class="nav-link" href={href()}>公司目录</a></nav>
+      {isDemo && <span class="demo"><i></i>本地演示</span>}
+    </div></header>
+    <main id="content" class="shell"><slot /></main>
+    <footer class="shell footer"><span>开发者手记</span><span>{isDemo ? '本地演示 · 公司、项目与评价均为虚构' : '游戏行业匿名评价'}</span></footer>
+  </body>
+</html>

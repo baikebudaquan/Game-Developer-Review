@@ -1,0 +1,140 @@
+import { readFileSync, readdirSync, mkdirSync, writeFileSync, rmSync, existsSync } from 'node:fs';
+import { dirname, join, resolve } from 'node:path';
+import { fileURLToPath } from 'node:url';
+
+const root = resolve(dirname(fileURLToPath(import.meta.url)), '..');
+const dataDir = resolve(root, 'data');
+const outDir = resolve(root, 'site/public/data/v1');
+
+const readJson = path => JSON.parse(readFileSync(path, 'utf8'));
+const round = value => Math.round(value * 10) / 10;
+const avg = scores => scores.length ? round(scores.reduce((sum, n) => sum + n, 0) / scores.length) : null;
+const median = scores => {
+  if (!scores.length) return null;
+  const sorted = [...scores].sort((a, b) => a - b);
+  const mid = Math.floor(sorted.length / 2);
+  return sorted.length % 2 ? sorted[mid] : round((sorted[mid - 1] + sorted[mid]) / 2);
+};
+
+function shanghaiNow() {
+  const shifted = new Date(Date.now() + 8 * 60 * 60 * 1000);
+  return shifted.toISOString().replace(/\.\d{3}Z$/, '+08:00');
+}
+
+function loadCompanies() {
+  return readdirSync(join(dataDir, 'companies'))
+    .filter(name => name.endsWith('.json'))
+    .map(name => readJson(join(dataDir, 'companies', name)))
+    .sort((a, b) => a.id.localeCompare(b.id));
+}
+
+function loadReviews(companyId) {
+  const dir = join(dataDir, 'reviews', companyId);
+  if (!existsSync(dir)) return [];
+  return readdirSync(dir)
+    .filter(name => name.endsWith('.json'))
+    .map(name => readJson(join(dir, name)))
+    .sort((a, b) => b.publishedAt.localeCompare(a.publishedAt) || a.id.localeCompare(b.id));
+}
+
+function distribution(reviews) {
+  const counts = { 1: 0, 2: 0, 3: 0, 4: 0, 5: 0 };
+  reviews.forEach(review => { counts[review.score] += 1; });
+  return counts;
+}
+
+function topTags(reviews) {
+  const counts = new Map();
+  reviews.forEach(review => (review.tags || []).forEach(tag => counts.set(tag, (counts.get(tag) || 0) + 1)));
+  return [...counts.entries()]
+    .map(([key, count]) => ({ key, count }))
+    .sort((a, b) => b.count - a.count);
+}
+
+function byProfile(reviews) {
+  const dims = ['role', 'tenure', 'employment', 'city'];
+  return Object.fromEntries(dims.map(dim => {
+    const groups = new Map();
+    reviews.forEach(review => {
+      const key = review.profile && review.profile[dim];
+      if (!key) return;
+      if (!groups.has(key)) groups.set(key, []);
+      groups.get(key).push(review.score);
+    });
+    return [dim, [...groups.entries()]
+      .filter(([, scores]) => scores.length >= 3)
+      .map(([key, scores]) => ({ key, count: scores.length, avgScore: avg(scores) }))
+      .sort((a, b) => b.count - a.count || a.key.localeCompare(b.key))];
+  }));
+}
+
+function buildDetail(company) {
+  const reviews = loadReviews(company.id);
+  const scores = reviews.map(review => review.score);
+  const perProject = new Map(company.projects.map(project => [project.id, []]));
+  reviews.forEach(review => {
+    if (review.projectId && perProject.has(review.projectId)) perProject.get(review.projectId).push(review.score);
+  });
+  return {
+    schemaVersion: 1,
+    company: {
+      id: company.id,
+      slug: company.slug,
+      name: company.name,
+      aliases: company.aliases || [],
+      reviewCount: reviews.length,
+      avgScore: avg(scores),
+      scoreDistribution: distribution(reviews),
+    },
+    projects: company.projects.map(project => {
+      const projectScores = perProject.get(project.id);
+      return {
+        id: project.id,
+        name: project.name,
+        status: project.status,
+        reviewCount: projectScores.length,
+        avgScore: avg(projectScores),
+      };
+    }),
+    byProfile: byProfile(reviews),
+    reviews,
+  };
+}
+
+function main() {
+  const taxonomy = readJson(join(dataDir, 'taxonomy.json'));
+  const companies = loadCompanies();
+  const generatedAt = shanghaiNow();
+  const details = companies.map(company => ({ company, detail: buildDetail(company) }));
+  const reviewTotal = details.reduce((sum, item) => sum + item.detail.company.reviewCount, 0);
+  const projectTotal = companies.reduce((sum, company) => sum + company.projects.length, 0);
+
+  rmSync(outDir, { recursive: true, force: true });
+  mkdirSync(join(outDir, 'companies'), { recursive: true });
+
+  const index = {
+    schemaVersion: 1,
+    generatedAt,
+    totals: { companies: companies.length, projects: projectTotal, reviews: reviewTotal },
+    companies: details.map(({ detail }) => ({
+      ...detail.company,
+      projectCount: detail.projects.length,
+      medianScore: median(detail.reviews.map(review => review.score)),
+      lastPublishedAt: detail.reviews.reduce((latest, review) => review.publishedAt > latest ? review.publishedAt : latest, ''),
+      topTags: topTags(detail.reviews),
+    })),
+  };
+  index.companies.forEach(company => { company.lastPublishedAt ||= null; });
+
+  const manifest = { schemaVersion: 1, generatedAt, totals: index.totals };
+  writeFileSync(join(outDir, 'index.json'), JSON.stringify(index, null, 2) + '\n', 'utf8');
+  writeFileSync(join(outDir, 'manifest.json'), JSON.stringify(manifest, null, 2) + '\n', 'utf8');
+  writeFileSync(join(outDir, 'taxonomy.json'), JSON.stringify(taxonomy, null, 2) + '\n', 'utf8');
+  details.forEach(({ company, detail }) => {
+    writeFileSync(join(outDir, 'companies', company.id + '.json'), JSON.stringify(detail, null, 2) + '\n', 'utf8');
+  });
+
+  console.log(`聚合完成：${companies.length} 家公司，${projectTotal} 个项目，${reviewTotal} 条评价 → ${outDir}`);
+}
+
+main();
