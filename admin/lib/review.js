@@ -28,6 +28,24 @@ export function slugify(value) {
     .replace(/^-+|-+$/g, '');
 }
 
+/**
+ * 根据名称生成 slug：纯 ASCII 直接转写；含中文等字符时追加稳定短哈希，避免撞名。
+ */
+export function autoSlug(value) {
+  const text = String(value || '').trim();
+  if (!text) return '';
+  const ascii = slugify(text);
+  if (!/[^\x00-\x7F]/.test(text)) return ascii;
+  let hash = 0x811c9dc5;
+  for (const char of text) {
+    hash ^= char.codePointAt(0);
+    hash = Math.imul(hash, 0x01000193);
+  }
+  const suffix = (hash >>> 0).toString(36).padStart(6, '0').slice(-6);
+  if (!ascii) return `n${suffix}`;
+  return `${ascii.slice(0, 20).replace(/-+$/, '')}-${suffix}`;
+}
+
 export function parseJson(content, label = 'JSON') {
   try {
     return JSON.parse(content);
