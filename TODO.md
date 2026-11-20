@@ -29,8 +29,11 @@
 - [x] D1 表结构与 `pending` 写入
 - [x] 审核状态机（`pending` → `approved` / `rejected`）与 `audit_log` 表
 - [x] 零依赖测试脚本 `scripts/test-m2.mjs`
-- [ ] 在 Cloudflare 创建 D1、执行迁移并绑定两个 Pages 项目
-- [ ] 问卷页部署到 Cloudflare Pages 并绑定自定义域名
+- [x] 复用 D1 `goodcompany` 并执行迁移
+- [x] 创建 `gdr-survey` / `gdr-admin` 两个 Pages 项目并绑定 D1
+- [x] 问卷页部署到 Cloudflare Pages（`gdr-survey.pages.dev`）
+- [ ] 接入自定义域名（免费版不能单独托管子域，方案待定）
+- [ ] 填写问卷兜底收件邮箱
 - [ ] PoW 挑战改为服务端签发（当前由客户端生成，仅防脚本误提交）
 - [ ] 客户端 PoW 难度与服务端 `POW_DIFFICULTY` 联动
 - [ ] 备用境外提交端点（Deno Deploy / Fly.io / Vercel）
@@ -45,7 +48,7 @@
 - [x] 拒绝：标记 D1 为 `rejected` 并记录原因
 - [x] 审计日志写入 D1 `audit_log`
 - [ ] GitHub OAuth Device Flow 登录（替代手动粘贴 PAT）
-- [ ] 控制台部署到独立子域并与真实 token 联调
+- [ ] 控制台部署后与真实 token 联调（`gdr-admin.pages.dev`）
 - [ ] 批量通过（仅限已匹配公司且无敏感词命中）
 - [ ] 敏感词 / 正则扫描（手机号、身份证、邮箱、常见人名）
 - [ ] 相似文本重复提示（余弦 / 编辑距离）

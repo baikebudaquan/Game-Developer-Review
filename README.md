@@ -12,8 +12,8 @@
 | --- | --- | --- |
 | M0 | 数据契约、示例数据、校验与聚合脚本 | 已完成 |
 | M1 | 展示站骨架（列表 / 详情 / 筛选） | 已完成（使用虚构样例数据） |
-| M2 | 提交链路（Pages Function + D1） | 代码骨架完成，待 Cloudflare 部署 |
-| M3 | 审核控制台 | 代码骨架完成，待真实 token 联调 |
+| M2 | 提交链路（Pages Function + D1） | 已部署到 `gdr-survey.pages.dev`，提交链路已验证 |
+| M3 | 审核控制台 | 已部署到 `gdr-admin.pages.dev`，待管理员 PAT 联调 |
 | M4 | 发布管线 | 部分完成（CI 已就位） |
 | M5 | 上线加固 | 未开始 |
 
@@ -121,22 +121,21 @@ npm run test:m2
 
 部署步骤：
 
-1. 创建 D1 并执行迁移：
+1. 复用已有 D1 `goodcompany`，执行迁移：
 
 ```sh
-npx wrangler d1 create game-developer-review
-npx wrangler d1 execute game-developer-review --remote --file survey/migrations/0001_submissions.sql
+npx wrangler d1 execute goodcompany --remote --file survey/migrations/0001_submissions.sql
 ```
 
-2. 创建 Cloudflare Pages 项目，构建根目录为仓库根，静态目录为 `survey`，Functions 使用根目录 `functions/`；绑定 D1 变量 `DB`。
-3. 配置 Pages 环境变量：`IP_SALT`（密钥）、`ALLOWED_ORIGINS`（问卷域名）、`POW_DIFFICULTY=3`。
+2. 创建 Cloudflare Pages 项目 `gdr-survey`，构建根目录为仓库根，静态目录为 `survey`，Functions 自动使用根目录 `functions/`；绑定 D1 变量 `DB`。
+3. 配置 Pages 环境变量：`IP_SALT`（密钥）、`ALLOWED_ORIGINS`（问卷访问域名）、`POW_DIFFICULTY=3`。
 4. 部署问卷：
 
 ```sh
-npx wrangler pages deploy survey --project-name <PAGES_PROJECT>
+npx wrangler pages deploy survey --project-name gdr-survey --branch main
 ```
 
-5. 把 [survey/index.html](survey/index.html) 中的 `data-fallback-email` 与 `mailto:` 占位地址替换为真实收件地址。
+5. 如需邮件兜底，把 [survey/index.html](survey/index.html) 的 `data-fallback-email` 填成真实邮箱；留空时隐藏「邮件提交」按钮，「复制内容」仍可用。
 
 ## M3 审核控制台（骨架）
 
@@ -158,10 +157,11 @@ npm run test:m3
 部署：
 
 ```sh
-npx wrangler pages deploy admin --project-name <ADMIN_PROJECT>
+cd admin
+npx wrangler pages deploy . --project-name gdr-admin --branch main
 ```
 
-审核控制台使用独立的 Pages 项目，`admin/functions/` 提供 `/api/admin/*` 接口。需要给该项目绑定 D1 变量 `DB`，并设置 `GITHUB_OWNER`、`GITHUB_REPO`（可选 `ADMIN_LOGINS`）。建议使用独立子域（如 `admin.example.com`），与问卷域隔离 token。token 只需要公开仓 `Game-Developer-Review` 的 `Contents: Read and write` 权限；不要写入代码或提交到仓库。
+审核控制台使用独立的 Pages 项目，`admin/functions/` 提供 `/api/admin/*` 接口。需要给该项目绑定 D1 变量 `DB`，并设置 `GITHUB_OWNER`、`GITHUB_REPO`（可选 `ADMIN_LOGINS`）。一期使用 `gdr-admin.pages.dev` 默认域名，后续接入自定义域名时再与问卷域隔离。token 只需要公开仓 `Game-Developer-Review` 的 `Contents: Read and write` 权限；不要写入代码或提交到仓库。
 
 ## 协作
 
