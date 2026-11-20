@@ -118,6 +118,7 @@ export async function onRequestPost({ request, env }) {
       uaFamily: uaFamily(request.headers.get('user-agent') || ''),
       country: request.cf?.country || 'unknown',
       pow: input.js ? 'pass' : 'no_js',
+      flags: result.flags,
       ...(ipHash ? { ipHash } : {}),
     },
   };

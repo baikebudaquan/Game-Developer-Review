@@ -13,7 +13,7 @@
 | M0 | 数据契约、示例数据、校验与聚合脚本 | 已完成 |
 | M1 | 展示站骨架（列表 / 详情 / 筛选） | 已完成（使用虚构样例数据） |
 | M2 | 提交链路（Worker + D1 + 私有暂存仓） | 代码骨架完成，待 Cloudflare 部署 |
-| M3 | 审核控制台 | 未开始 |
+| M3 | 审核控制台 | 代码骨架完成，待真实 token 联调 |
 | M4 | 发布管线 | 部分完成（CI 已就位） |
 | M5 | 上线加固 | 未开始 |
 
@@ -43,6 +43,10 @@ Game-Developer-Review/
 │  └─ migrations/
 ├─ functions/api/submit.js     # Cloudflare Pages Function
 ├─ worker/                     # D1 → 私有仓 Cron Worker
+├─ admin/                      # 审核控制台（静态 SPA）
+│  ├─ index.html
+│  ├─ app.js
+│  └─ lib/
 ├─ site/                       # Astro 展示站源码
 │  ├─ src/
 │  └─ public/                  # 生成数据写入 public/data/v1
@@ -68,6 +72,7 @@ npm run dev
 | `npm run build` | 校验 + 聚合 + 构建到 `site/dist/` |
 | `npm run preview` | 预览构建结果 |
 | `npm run test:m2` | 提交链路的校验、PoW、哈希测试 |
+| `npm run test:m3` | 审核、发布、拒绝与审计流程测试 |
 
 `site/public/data/v1/` 是生成物，不入库；修改 `data/` 后重新构建即可。
 
@@ -142,6 +147,32 @@ npx wrangler deploy -c worker/wrangler.toml
 ```
 
 8. 把 [survey/index.html](survey/index.html) 中的 `data-fallback-email` 与 `mailto:` 占位地址替换为真实收件地址。
+
+## M3 审核控制台（骨架）
+
+已实现：
+
+- PAT 登录，token 仅存 `sessionStorage`；登录时校验两个仓库的写权限与可选登录名白名单
+- 待审列表：递归读取私有仓 `submissions/pending/`，支持搜索与风控标记展示
+- 详情编辑：公司匹配 / 新建、项目匹配 / 新建、脱敏修改正文、标签与画像
+- 通过：Git Data API 一次提交 review 与 company 文件，409 冲突自动重试；随后删除 pending 文件并写审计
+- 拒绝：移入 `submissions/rejected/` 并记录原因，同时写审计
+- 审计：追加到 `audit/{yyyy}-{mm}.jsonl`，不含评价正文
+- 配置集中在 [admin/config.js](admin/config.js)，登录页已带 `noindex` 与 CSP
+
+本地逻辑验证：
+
+```sh
+npm run test:m3
+```
+
+部署：
+
+```sh
+npx wrangler pages deploy admin --project-name <ADMIN_PROJECT>
+```
+
+建议使用独立子域（如 `admin.example.com`），与问卷域隔离 token。token 需要两个仓库的 `Contents: Read and write` 权限；不要写入代码或提交到仓库。上线前把管理员 GitHub 登录名填入 `config.allowedLogins`，为空时只校验仓库权限。
 
 ## 协作
 
