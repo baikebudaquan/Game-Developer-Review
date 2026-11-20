@@ -1,6 +1,7 @@
 import { createServer } from 'node:http';
 import { execFileSync, spawn } from 'node:child_process';
-import { createReadStream, existsSync, readFileSync, rmSync } from 'node:fs';
+import { createHash } from 'node:crypto';
+import { createReadStream, existsSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { stat } from 'node:fs/promises';
 import { dirname, extname, join, normalize, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -157,11 +158,22 @@ async function deploySite(req, res) {
       return json(res, 500, { ok: false, message: '准备部署目录失败', log: worktree.output.slice(-4000) });
     }
 
-    console.log('[deploy] npm ci');
-    const install = await run('npm', ['ci'], { env, cwd: DEPLOY_DIR });
-    if (install.code !== 0) {
-      console.error(install.output);
-      return json(res, 500, { ok: false, message: '安装依赖失败', log: install.output.slice(-4000) });
+    const lockfile = join(DEPLOY_DIR, 'package-lock.json');
+    const stampPath = join(DEPLOY_DIR, 'node_modules', '.gdr-lock');
+    const lockHash = existsSync(lockfile)
+      ? createHash('sha1').update(readFileSync(lockfile)).digest('hex')
+      : '';
+    const installed = existsSync(stampPath) && readFileSync(stampPath, 'utf8').trim() === lockHash;
+
+    if (installed) {
+      console.log('[deploy] 依赖未变化，跳过 npm ci');
+    } else {
+      const install = await run('npm', ['ci'], { env, cwd: DEPLOY_DIR });
+      if (install.code !== 0) {
+        console.error(install.output);
+        return json(res, 500, { ok: false, message: '安装依赖失败', log: install.output.slice(-4000) });
+      }
+      writeFileSync(stampPath, lockHash);
     }
 
     console.log('[deploy] npm run build:dev');
