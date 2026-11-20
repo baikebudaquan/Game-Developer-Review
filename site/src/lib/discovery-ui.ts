@@ -2,38 +2,7 @@ function setupFeatured(feature: HTMLElement) {
   const slides = Array.from(feature.querySelectorAll<HTMLElement>('[data-slide]'));
   const dots = Array.from(feature.querySelectorAll<HTMLButtonElement>('[data-dot]'));
   const stage = feature.querySelector<HTMLElement>('.feature-stage')!;
-  const resetImages: (()=>void)[] = [];
   let current = 0;
-  slides.forEach(slide => {
-    const image = slide.querySelector<HTMLImageElement>('[data-cover-image]');
-    const previews = Array.from(slide.querySelectorAll<HTMLButtonElement>('[data-preview]'));
-    if (!image) { resetImages.push(()=>{}); return; }
-    const cover = image.getAttribute('src')!;
-    let selected = '';
-    function show(src: string) {
-      image!.src = src || cover;
-      slide.classList.toggle('show-scene', Boolean(src));
-      previews.forEach(b=>b.classList.toggle('previewing', Boolean(src) && b.dataset.preview===src));
-    }
-    function reset() {
-      selected = ''; show('');
-      previews.forEach(b=>b.setAttribute('aria-pressed','false'));
-    }
-    resetImages.push(reset);
-    previews.forEach(b => {
-      const src=b.dataset.preview!;
-      b.setAttribute('aria-pressed','false');
-      b.addEventListener('pointerenter',e=>{if(e.pointerType!=='touch') show(src);});
-      b.addEventListener('pointerleave',()=>show(selected));
-      b.addEventListener('focus',()=>show(src));
-      b.addEventListener('blur',()=>show(selected));
-      b.addEventListener('click',()=>{
-        selected=selected===src?'':src; show(selected);
-        previews.forEach(other=>other.setAttribute('aria-pressed',String(other.dataset.preview===selected)));
-      });
-      b.addEventListener('keydown',e=>{if(e.key==='Escape') reset();});
-    });
-  });
   if(slides.length<2) return;
   const rotate = feature.querySelector<HTMLButtonElement>('[data-rotate]')!;
   let automatic = !matchMedia('(prefers-reduced-motion: reduce)').matches;
@@ -47,7 +16,7 @@ function setupFeatured(feature: HTMLElement) {
     timer = window.setTimeout(()=>go(current+1),8000);
   }
   function go(next: number) {
-    resetImages[current](); current=(next+slides.length)%slides.length;
+    current=(next+slides.length)%slides.length;
     slides.forEach((s,i)=>{s.hidden=i!==current;});
     dots.forEach((b,i)=>{if(i===current) b.setAttribute('aria-current','true'); else b.removeAttribute('aria-current');});
     schedule();
@@ -100,12 +69,17 @@ export function setupDiscovery() {
   function update(open: boolean) {
     const query=input.value.trim().normalize('NFKC').toLocaleLowerCase();
     let count=0;
-    for(const tile of tiles){tile.hidden=!tile.dataset.project!.includes(query); if(!tile.hidden) count++;}
+    for (const tile of tiles) {
+      tile.hidden = query ? !tile.dataset.project!.includes(query) : !tile.hasAttribute('data-pick');
+      if (!tile.hidden) count++;
+    }
     clear.hidden=!query;
     if(feature) feature.hidden=Boolean(query);
-    home.querySelector<HTMLElement>('[data-library-title]')!.textContent=query?'项目搜索结果':'全部项目';
+    home.querySelector<HTMLElement>('[data-library-title]')!.textContent=query?'项目搜索结果':'近期好评项目';
     home.querySelector<HTMLElement>('[data-result-count]')!.textContent=String(count);
-    home.querySelector<HTMLElement>('[data-empty]')!.hidden=count!==0;
+    home.querySelector<HTMLElement>('[data-empty]')!.hidden=!query || count!==0;
+    home.querySelector<HTMLElement>('[data-no-picks]')!.hidden=Boolean(query) || count!==0;
+    home.querySelector<HTMLElement>('.ranking-rule')!.hidden=Boolean(query);
     const matches=links.filter(link=>link.dataset.search!.includes(query));
     // Prefer direct company or project name matches over a project matched via its parent company.
     const rank=(link:HTMLAnchorElement)=>{

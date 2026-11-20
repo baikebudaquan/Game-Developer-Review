@@ -1,0 +1,6 @@
+---
+import { minimumPositiveRatio, type reviewRating } from '../lib/project-stats';
+interface Props { rating: ReturnType<typeof reviewRating> }
+const { rating } = Astro.props;
+---
+<span class="rating-summary"><b class:list={['grade', { neutral: rating.ratio < minimumPositiveRatio }]}>{rating.grade}</b><small>{rating.count} 篇评价</small></span>

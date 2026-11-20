@@ -1,5 +1,5 @@
 import { detail, href, index } from './data';
-import { compareProjects, projectStats } from './project-stats';
+import { compareProjects, isRecentPick, projectStats } from './project-stats';
 
 const artwork: Record<string, [string, string]> = {
   p_kite: ['THE KITE MENDER','kite'], p_windward: ['WINDWARD ISLES','windward'],
@@ -17,12 +17,11 @@ export const projects = index.companies.flatMap(c => {
   return data.projects.map(project => {
     const reviews = data.reviews.filter(r=>r.projectId===project.id).sort((a,b)=>b.publishedAt.localeCompare(a.publishedAt));
     const art = artwork[project.id];
-    const scenes = art ? [1,2,3,4].map(n=>href(`images/projects/${art[1]}-${n}.webp`)) : [];
     const wordmark = art?.[0] || project.name;
-    const cover = project.id==='p_kite' ? href('images/projects/kite-cover.webp') : scenes[0];
+    const cover = art && href('images/projects/' + (project.id === 'p_kite' ? 'kite-cover' : art[1] + '-1') + '.webp');
     return {
       id: project.id, name: project.name, status: statuses[project.status] || '状态未知',
-      company: c.name, slug:c.slug, aliases, reviews, scenes, cover, wordmark,
+      company: c.name, slug:c.slug, aliases, reviews, cover, wordmark,
       path:href(`project/${encodeURIComponent(c.slug)}/${encodeURIComponent(project.id)}/`),
       search:[c.name,c.slug,...aliases,project.name,wordmark].join(' ').normalize('NFKC').toLocaleLowerCase(),
       ...projectStats(reviews,asOf)
@@ -30,4 +29,5 @@ export const projects = index.companies.flatMap(c => {
   });
 }).sort(compareProjects);
 export type Project = (typeof projects)[number];
+export const recentPicks = projects.filter(isRecentPick);
 export const projectsByStudio = Map.groupBy(projects, project => project.slug);
