@@ -11,7 +11,7 @@
 | 里程碑 | 内容 | 状态 |
 | --- | --- | --- |
 | M0 | 数据契约、示例数据、校验与聚合脚本 | 已完成 |
-| M1 | 展示站骨架（列表 / 详情 / 筛选） | 已完成（使用虚构样例数据） |
+| M1 | 展示站骨架（列表 / 详情 / 筛选） | 已完成（演示数据已从 main 移除，按真实审核数据构建） |
 | M2 | 提交链路（Pages Function + D1） | 已部署到 `gdr-survey.pages.dev`，提交链路已验证 |
 | M3 | 审核控制台 | 已部署到 `gdr-admin.pages.dev`，待管理员 PAT 联调 |
 | M4 | 发布管线 | 部分完成（CI 已就位） |
@@ -102,6 +102,8 @@ site/public/data/v1 ──► Astro 构建 ──► site/dist ──► GitHub 
 - 公司元数据与项目列表：`data/companies/{companyId}.json`
 - 单条已审核评价：`data/reviews/{companyId}/{reviewId}.json`
 - 枚举字典：`data/taxonomy.json`
+
+`data/companies` 与 `data/reviews` 初始为空，真实数据由控制台审核通过后写入；展示站在没有数据时显示空状态。演示数据已从 Git 历史中保留，需要本地演示时可从历史恢复。
 
 新增或修改数据后至少运行 `npm run data:validate`。公开数据不得出现姓名、联系方式、IP、UA、审核人等字段，校验脚本会拦截。
 

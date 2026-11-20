@@ -22,9 +22,11 @@ function shanghaiNow() {
 }
 
 function loadCompanies() {
-  return readdirSync(join(dataDir, 'companies'))
+  const dir = join(dataDir, 'companies');
+  if (!existsSync(dir)) return [];
+  return readdirSync(dir)
     .filter(name => name.endsWith('.json'))
-    .map(name => readJson(join(dataDir, 'companies', name)))
+    .map(name => readJson(join(dir, name)))
     .sort((a, b) => a.id.localeCompare(b.id));
 }
 

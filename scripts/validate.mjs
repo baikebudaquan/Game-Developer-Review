@@ -158,7 +158,10 @@ function main() {
     return;
   }
 
-  const companyFiles = readdirSync(join(dataDir, 'companies')).filter(name => name.endsWith('.json'));
+  const companyDir = join(dataDir, 'companies');
+  const companyFiles = existsSync(companyDir)
+    ? readdirSync(companyDir).filter(name => name.endsWith('.json'))
+    : [];
   const companies = new Map();
   companyFiles.forEach(fileName => {
     const result = validateCompany(fileName);
@@ -173,9 +176,11 @@ function main() {
     readdirSync(join(dataDir, 'reviews')).forEach(companyId => {
       const dir = join(dataDir, 'reviews', companyId);
       if (!statSync(dir).isDirectory()) return;
+      const reviewFiles = readdirSync(dir).filter(name => name.endsWith('.json'));
+      if (!reviewFiles.length) return;
       const company = companies.get(companyId);
       if (!company) return fail(`data/reviews/${companyId}：没有对应的公司文件`);
-      readdirSync(dir).filter(name => name.endsWith('.json')).forEach(fileName => {
+      reviewFiles.forEach(fileName => {
         validateReview(fileName, companyId, company, taxonomy, seenReviewIds);
         reviewCount++;
       });

@@ -23,6 +23,7 @@ const stats = [[index.totals.companies,'家公司'], [index.totals.projects,'个
       <label class="search"><i class="glass" aria-hidden="true"></i><input type="search" id="query" aria-label="搜索公司" placeholder="搜索公司名称或别名" autocomplete="off" /></label>
       <label class="sort">排序<select id="sort"><option value="score">综合评分</option><option value="count">评价数量</option><option value="recent">最近更新</option></select></label>
     </div>
+    {sorted.length === 0 && <div class="empty"><strong>还没有已发布的评价</strong><span>审核通过后会出现在这里。</span></div>}
     <div class="company-grid" id="companies">
       {sorted.map(c=><a class="company-card" href={href('company/' + c.slug + '/')}
         data-name={[c.name,c.slug,...(c.aliases || [])].join(' ')} data-score={c.avgScore ?? -1} data-count={c.reviewCount} data-recent={c.lastPublishedAt ?? ''}>
@@ -56,7 +57,7 @@ const stats = [[index.totals.companies,'家公司'], [index.totals.projects,'个
       grid.append(el);
     }
     document.querySelector<HTMLElement>('.total')!.textContent = String(count);
-    document.querySelector<HTMLElement>('#no-results')!.hidden = count > 0;
+    document.querySelector<HTMLElement>('#no-results')!.hidden = count > 0 || cards.length === 0;
     document.querySelector<HTMLElement>('#results')!.textContent = `共 ${count} 家公司`;
   }
   search.addEventListener('input', refresh);
