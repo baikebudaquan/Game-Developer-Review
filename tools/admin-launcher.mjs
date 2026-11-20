@@ -1,8 +1,8 @@
 import { createServer } from 'node:http';
+import { execFileSync, spawn } from 'node:child_process';
 import { createReadStream, existsSync, readFileSync, rmSync } from 'node:fs';
 import { stat } from 'node:fs/promises';
 import { dirname, extname, join, normalize, resolve } from 'node:path';
-import { spawn } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..');
@@ -209,6 +209,29 @@ async function serveStatic(req, res, url) {
   }
 }
 
+function detectSystemProxy() {
+  const envProxy = process.env.HTTPS_PROXY || process.env.https_proxy
+    || process.env.HTTP_PROXY || process.env.http_proxy;
+  if (envProxy) return envProxy;
+  if (process.platform !== 'win32') return null;
+  try {
+    const output = execFileSync('reg', [
+      'query',
+      'HKCU\\Software\\Microsoft\\Windows\\CurrentVersion\\Internet Settings',
+    ], { encoding: 'utf8', windowsHide: true });
+    if (!/ProxyEnable\s+REG_DWORD\s+0x1/i.test(output)) return null;
+    const match = output.match(/ProxyServer\s+REG_SZ\s+([^\r\n]+)/i);
+    if (!match) return null;
+    const raw = match[1].trim();
+    const scoped = raw.match(/https=([^;\s]+)/i) || raw.match(/http=([^;\s]+)/i);
+    const server = scoped ? scoped[1] : raw.split(';')[0];
+    if (!server) return null;
+    return /^https?:\/\//i.test(server) ? server : `http://${server}`;
+  } catch {
+    return null;
+  }
+}
+
 function openBrowser(url) {
   if (process.platform === 'win32') {
     spawn('cmd', ['/c', 'start', '', url], { detached: true, stdio: 'ignore', windowsHide: true }).unref();
@@ -257,4 +280,25 @@ if (Number(process.versions.node.split('.')[0]) < 18) {
   process.exit(1);
 }
 
-listen(BASE_PORT, 10);
+const proxyUrl = detectSystemProxy();
+if (proxyUrl && !process.env.GDR_ADMIN_PROXY_ACTIVE) {
+  if (Number(process.versions.node.split('.')[0]) >= 24) {
+    console.log(`检测到系统代理 ${proxyUrl}，本地服务将通过代理访问审核 API。`);
+    const child = spawn(process.execPath, [fileURLToPath(import.meta.url)], {
+      stdio: 'inherit',
+      env: {
+        ...process.env,
+        GDR_ADMIN_PROXY_ACTIVE: '1',
+        NODE_USE_ENV_PROXY: '1',
+        HTTP_PROXY: proxyUrl,
+        HTTPS_PROXY: proxyUrl,
+      },
+    });
+    child.on('exit', code => process.exit(code ?? 0));
+  } else {
+    console.warn(`检测到系统代理 ${proxyUrl}，但当前 Node 版本不支持自动使用代理，建议升级到 Node.js 24 或更高版本。`);
+    listen(BASE_PORT, 10);
+  }
+} else {
+  listen(BASE_PORT, 10);
+}
