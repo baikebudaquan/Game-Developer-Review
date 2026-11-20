@@ -38,11 +38,13 @@ export async function authenticate(request, env) {
 
   if (userResponse.status === 401) return { error: fail(401, 'token 无效或已过期') };
   if (!userResponse.ok) return { error: fail(502, '无法校验 GitHub 身份') };
-  if (!repoResponse.ok) return { error: fail(403, 'token 无权访问数据仓库') };
+  if (!repoResponse.ok) {
+    return { error: fail(403, 'token 无权访问数据仓库；协作者请使用 classic token（repo scope）') };
+  }
 
   const [user, repository] = await Promise.all([userResponse.json(), repoResponse.json()]);
   if (repository.permissions?.push !== true) {
-    return { error: fail(403, 'token 缺少数据仓库的 Contents 写权限') };
+    return { error: fail(403, 'token 缺少数据仓库写权限；协作者请使用 classic token（repo scope）') };
   }
 
   const allowed = (env.ADMIN_LOGINS || '').split(',').map(item => item.trim()).filter(Boolean);

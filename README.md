@@ -161,7 +161,7 @@ cd admin
 npx wrangler pages deploy . --project-name gdr-admin --branch main
 ```
 
-审核控制台使用独立的 Pages 项目，`admin/functions/` 提供 `/api/admin/*` 接口。需要给该项目绑定 D1 变量 `DB`，并设置 `GITHUB_OWNER`、`GITHUB_REPO`（可选 `ADMIN_LOGINS`）。一期使用 `gdr-admin.pages.dev` 默认域名，后续接入自定义域名时再与问卷域隔离。token 只需要公开仓 `Game-Developer-Review` 的 `Contents: Read and write` 权限；不要写入代码或提交到仓库。
+审核控制台使用独立的 Pages 项目，`admin/functions/` 提供 `/api/admin/*` 接口。需要给该项目绑定 D1 变量 `DB`，并设置 `GITHUB_OWNER`、`GITHUB_REPO`（可选 `ADMIN_LOGINS`）。一期使用 `gdr-admin.pages.dev` 默认域名，后续接入自定义域名时再与问卷域隔离。仓库主人用 fine-grained PAT；仓库协作者需要用 classic PAT（`repo` scope），因为 GitHub 不支持细粒度令牌写别人个人仓库。不要写入代码或提交到仓库。
 
 ## 协作
 
