@@ -1,0 +1,31 @@
+---
+import { projects } from '../lib/projects';
+import { href } from '../lib/data';
+import ProjectCover from './ProjectCover.astro';
+const recent = projects.filter(p=>p.recentPositive>0);
+const slides = (recent.length ? recent : projects).slice(0,5);
+const title = recent.length ? '近期好评精选' : '项目聚焦';
+---
+{slides.length>0 && <section class="featured" data-featured aria-label={title}>
+  <div class="discovery-section-head"><h2><i aria-hidden="true"></i>{title}</h2>
+    <div class="feature-nav">{slides.length>1 && <><button type="button" class="rotation" data-rotate aria-label="暂停自动轮播" title="暂停自动轮播">Ⅱ</button><button type="button" data-prev aria-label="上一个项目">‹</button><button type="button" data-next aria-label="下一个项目">›</button></>}</div>
+  </div>
+  <div class="feature-stage" aria-roledescription="轮播">
+    {slides.map((p,i)=><article class="feature-slide" hidden={i!==0} data-slide>
+      <a class="hero-cover" href={p.path} aria-label={'查看'+p.name+'的全部评价'}><ProjectCover project={p} eager={i===0}/>
+        <span class="cover-pop"><strong>{p.name}</strong><small>{p.company} · {p.status}</small>
+          <span>近 30 天有 <b>{p.recentPositive}</b> 篇好评</span>
+          {p.reviews[0] && <q>{p.reviews[0].title || p.reviews[0].comment}</q>}
+        </span>
+      </a>
+      <div class="feature-info">
+        <a class="studio-link" href={href('company/'+p.slug+'/')}>{p.company} ↗</a>
+        <h3><a href={p.path}>{p.name}</a></h3>
+        <div class="feature-grade"><b class:list={['grade',{'neutral':p.ratio<.7}]}>{p.grade}</b><span>（{p.count} 篇评价）</span></div>
+        {p.scenes.length>0 && <div class="scene-grid" aria-label="项目画面预览">{p.scenes.map((src,n)=><button type="button" data-preview={src} aria-label={p.name+'场景预览 '+(n+1)}><img src={src} alt="" loading={i===0?'eager':'lazy'} /></button>)}</div>}
+        <div class="feature-bottom"><span><i></i>{p.status}</span><a class="review-cta" href={p.path}>查看全部评价 <b>→</b></a></div>
+      </div>
+    </article>)}
+  </div>
+  {slides.length>1 && <div class="feature-dots" aria-label="切换精选项目">{slides.map((p,i)=><button type="button" aria-label={'精选项目：'+p.name} aria-current={i===0?'true':undefined} data-dot><i></i></button>)}</div>}
+</section>}

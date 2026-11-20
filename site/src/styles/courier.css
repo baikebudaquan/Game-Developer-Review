@@ -1,0 +1,74 @@
+.hero.courier-hero {
+  display: grid; grid-template-columns: minmax(0,.8fr) minmax(0,1.2fr); gap: 26px;
+  align-items: center; padding: 30px clamp(22px,3vw,42px); isolation: isolate;
+  background: radial-gradient(ellipse at 3% 5%,#3e3658 0%,transparent 58%),
+    linear-gradient(115deg,#222037 10%,#24223a 63%,#332b42);
+}
+.courier-hero::before {
+  content: ''; position: absolute; inset: 0; z-index: -1; opacity: .23;
+  background-image: radial-gradient(#b5a7d1 0.8px,transparent 0.8px); background-size: 14px 14px;
+  mask-image: linear-gradient(125deg,black,transparent 61%);
+}
+.courier-hero .hero-copy { max-width: none; padding: 14px 0; }
+.courier-hero .hero-copy h1 { font-size: clamp(35px,3.3vw,50px); }
+.arcade {
+  color: #eae4fa; background: #242239; border: 1px solid #60546f; border-radius: 12px;
+  padding: 12px; min-width: 0; box-shadow: 0 5px 0 #151425, inset 0 1px #ffffff14;
+}
+.arcade-head, .arcade-controls, .office-line, .readouts, .power-heading, .skill-name { display: flex; align-items: center; }
+.arcade-head { justify-content: space-between; gap: 8px; padding: 0 1px 9px; }
+.arcade-head h2 { display: flex; align-items: center; gap: 8px; font-size: 17px; line-height: 1.25; color: #fff2d7; letter-spacing: .03em; }
+.mail-icon { display: grid; place-items: center; width: 23px; height: 20px; background: #ffcc91; border-radius: 4px; color: #392d43; font: 700 17px/1 Consolas, monospace; }
+.readouts { gap: 10px; font-size: 11px; color: #c7bed9; }
+.readouts b { font: 650 15px Consolas, monospace; color: #f1e8d3; }
+.playfield {
+  padding: 0; width: 100%; position: relative; overflow: hidden; display: block; cursor: pointer;
+  border: 2px solid #151523; border-radius: 6px; background: #74618b; touch-action: manipulation;
+}
+.playfield canvas { display: block; width: 100%; height: auto; aspect-ratio: 3 / 1; image-rendering: pixelated; }
+.arcade-notice { position: absolute; inset: 50% auto auto 50%; transform: translate(-50%,-50%); white-space: nowrap; padding: 9px 15px; border: 1px solid #c3aac4; border-radius: 5px; color: #fff4d8; background: #262238f5; font-weight: 700; }
+.arcade-controls { gap: 8px; margin: 10px 0 7px; }
+.arcade-controls button { border-radius: 6px; min-height: 36px; font-weight: 650; font-size: 13px; padding: 6px 12px; }
+.play-action { color: #25223a; background: #ffcf94; border: 1px solid #ffdfb2; box-shadow: 0 2px #9e6c5e; }
+.play-action:active { transform: translateY(1px); }
+.arcade-pause, .power-button { color: #e2d9ef; background: #363149; border: 1px solid #60546e; }
+.power-button { margin-left: auto; }
+.power-button b { color: #bce6d5; }
+.game-guide { min-height: 1.6em; color: #d6cfe3; font-size: 12px; line-height: 1.6; }
+.office-line { gap: 8px; flex-wrap: wrap; border-top: 1px solid #4a4157; margin-top: 8px; padding-top: 8px; color: #d2c6dc; font-size: 11px; }
+.office-goal { margin-left: auto; }
+.office-windows { display: grid; grid-template-columns: repeat(3,4px); gap: 2px; }
+.office-windows i { width: 4px; height: 4px; background: #887991; }
+.office-windows .lit { background: #ffd496; box-shadow: 0 0 4px #f5bb74; }
+.power-dialog { width: min(410px,calc(100% - 30px)); max-height: 86dvh; border-radius: 14px; border: 1px solid #b9b1cc; background: #fcfaff; color: #29263d; padding: 22px; }
+.power-dialog::backdrop { background: #151425ba; }
+.power-heading { justify-content: space-between; gap: 12px; margin-bottom: 8px; }
+.power-heading h2 { font-size: 21px; }
+.power-heading button { border: 1px solid #d5cedf; border-radius: 6px; background: white; width: 34px; height: 34px; font-size: 20px; }
+.power-dialog p { font-size: 13px; color: #5c566b; line-height: 1.6; }
+.power-dialog ul { list-style: none; padding: 0; margin: 16px 0 0; display: grid; gap: 12px; }
+.power-dialog li { display: grid; grid-template-columns: 32px 1fr; gap: 10px; padding: 13px 0 0; border-top: 1px solid #e5dfed; }
+.skill-icon { width: 30px; height: 30px; display: grid; place-items: center; border-radius: 6px; background: #eae3f5; color: #62538a; font: 700 20px Consolas,monospace; }
+.skill-name { justify-content: space-between; gap: 10px; }
+.skill-name strong { font-size: 15px; }
+.skill-name span { font-size: 11px; color: #736b80; }
+.skill-name .active { color: #296c57; }
+.skill-meter { height: 4px; background: #e3dcec; border-radius: 4px; overflow: hidden; margin: 7px 0 3px; }
+.skill-meter i { height: 100%; display: block; background: #9380b2; }
+.power-dialog small { font-size: 11px; color: #696073; }
+@media(max-width:850px) and (min-width:681px) {
+  .hero.courier-hero { grid-template-columns: .75fr 1.25fr; padding: 20px; gap: 16px; }
+  .courier-hero .stats span + span { margin-left: 8px; padding-left: 8px; }
+  .arcade-controls button { padding: 6px 8px; }
+}
+@media(max-width:680px) {
+  .hero.courier-hero { display: block; padding: 16px 12px 14px; }
+  .hero.courier-hero::after { display: none; }
+  .courier-hero .hero-copy { padding: 4px 6px 17px; }
+  .courier-hero .hero-copy h1 { font-size: 31px; margin: 5px 0; }
+  .courier-hero .stats { margin-top: 10px; }
+  .courier-hero .stats strong { font-size: 18px; }
+  .arcade { padding: 9px; }
+  .arcade-controls button { padding: 6px 9px; min-height: 42px; }
+  .office-line { gap: 5px; }
+}

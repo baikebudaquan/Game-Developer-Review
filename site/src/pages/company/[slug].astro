@@ -1,7 +1,11 @@
 ---
 import Layout from '../../components/Layout.astro';
-import Mark from '../../components/Mark.astro';
-import { detail, index, href, taxonomy, scoreText, label, month } from '../../lib/data';
+import StudioMasthead from '../../components/StudioMasthead.astro';
+import ProjectTile from '../../components/ProjectTile.astro';
+import ReviewCard from '../../components/ReviewCard.astro';
+import { projectsByStudio } from '../../lib/projects';
+import '../../styles/studios.css';
+import { detail, index, href, taxonomy, scoreText, label } from '../../lib/data';
 import type { ProfileKey } from '../../lib/data';
 export function getStaticPaths() {
   return index.companies.map(c => ({ params: { slug: c.slug }, props: { data: detail(c.id) } }));
@@ -17,41 +21,40 @@ const groups = dimensions.flatMap(([key,title,items])=>(byProfile?.[key] || [])
   .filter(cell=>cell.count>=3).map(cell=>({...cell,title,text:label(items,cell.key)})));
 const filterItems = (key:ProfileKey) => new Set(reviews.map(r=>r.profile?.[key]).filter(Boolean));
 const roles = filterItems('role'), tenures = filterItems('tenure');
-const statuses:Record<string,string> = {live:'已上线',dev:'在研',cancelled:'已取消',unknown:'状态未知'};
+const titles = projectsByStudio.get(company.slug) ?? [];
 ---
-<Layout title={company.name}>
-  <nav class="crumb" aria-label="面包屑"><a href={href()}>公司目录</a><span> / </span>{company.name}</nav>
-  <section class="identity panel">
-    <Mark slug={company.slug}/><div><h1>{company.name}</h1>{company.aliases?.length > 0 && <p>{company.aliases.join(' · ')}</p>}</div>
-    <div class="big-score"><span>综合评分</span><strong>{scoreText(company.avgScore)}<small> / 5</small></strong><span>{company.reviewCount} 条评价</span></div>
-  </section>
-  <div class="detail-columns">
-    <aside class="overview">
-      <section class="panel side-panel"><h2>项目概览</h2>
-        {projects.length===0 && <p class="muted">暂无收录项目</p>}
-        {projects.map(p=><div class="project-row"><b>{p.name}</b><small>{statuses[p.status] || '状态未知'}{visibleStats && ` · ${p.reviewCount} 条评价 · ${scoreText(p.avgScore)} 分`}</small></div>)}
-      </section>
-      {visibleStats && <section class="panel side-panel"><h2>评分分布</h2>{[5,4,3,2,1].map(n=><div class="bar-row"><span>{n} 星</span><div class="track"><i style={{width:(company.scoreDistribution[n] || 0)/company.reviewCount*100+'%'}}></i></div><b>{company.scoreDistribution[n] || 0}</b></div>)}</section>}
-      {visibleStats && groups.length>0 && <section class="panel side-panel"><h2>画像统计</h2>{groups.map(g=><div class="group-row"><span>{g.title} · {g.text}</span><small>{g.count} 条 · 均分 {scoreText(g.avgScore)}</small></div>)}</section>}
-    </aside>
-    <section class="review-section">
-      <div class="section-title"><div><h2>开发者评价</h2><span id="matches" class="total" aria-live="polite">{reviews.length}</span></div></div>
+<Layout title={company.name} active="companies" dark>
+  <nav class="project-crumb" aria-label="面包屑"><a href={href('companies/')}>公司目录</a><span> / </span>{company.name}</nav>
+  <StudioMasthead company={company}/>
+  <nav class="studio-nav" aria-label="公司主页分区">
+    <a href="#works">旗下项目 <small>{titles.length}</small></a><a href="#reviews">开发者评价 <small>{reviews.length}</small></a>{visibleStats && <a href="#ratings">评分概况</a>}
+  </nav>
+  <div class:list={['studio-layout',{'with-stats':visibleStats}]}>
+    <div class="studio-main">
+    <section id="works" aria-labelledby="works-title"><div class="discovery-section-head"><h2 id="works-title"><i aria-hidden="true"></i>旗下项目</h2></div>
+      <div class="studio-projects">{titles.map(p=><ProjectTile project={p} inStudio showRating={visibleStats}/>)}</div>
+      {titles.length===0 && <p class="project-empty">暂无收录项目</p>}
+    </section>
+    <section id="reviews" class="project-reviews studio-reviews" aria-labelledby="reviews-title">
+      <div class="discovery-section-head"><h2 id="reviews-title"><i aria-hidden="true"></i>开发者评价<small id="matches" aria-live="polite">{reviews.length}</small></h2></div>
       <div class="filters">
         <label>项目<select id="project"><option value="">全部项目</option>{projects.map(p=><option value={p.id}>{p.name}</option>)}</select></label>
         <label>岗位<select id="role"><option value="">全部岗位</option>{taxonomy.roles.filter(x=>roles.has(x.key)).map(x=><option value={x.key}>{x.label}</option>)}</select></label>
         <label>司龄<select id="tenure"><option value="">全部司龄</option>{taxonomy.tenures.filter(x=>tenures.has(x.key)).map(x=><option value={x.key}>{x.label}</option>)}</select></label>
       </div>
       <div class="reviews">
-        {ordered.map(r=><article class="panel review" data-project={r.projectId || ''} data-role={r.profile?.role || ''} data-tenure={r.profile?.tenure || ''}>
-          <div class="review-line"><span class="review-score"><i aria-hidden="true">★</i> {r.score} 分</span><time datetime={r.publishedAt.slice(0,7)}>{month(r.publishedAt)}</time></div>
-          {r.title && <h3>{r.title}</h3>}
-          {r.comment.length>140 ? <details><summary><span class="excerpt">{r.comment.slice(0,120)}… <em>展开全文</em></span><em class="collapse">收起全文</em></summary><p>{r.comment}</p></details> : <p>{r.comment}</p>}
-          <div class="review-meta">{[projects.find(p=>p.id===r.projectId)?.name, label(taxonomy.roles,r.profile?.role), label(taxonomy.tenures,r.profile?.tenure)].filter(Boolean).join(' · ')}</div>
-          {!!r.tags?.length && <div class="chips">{r.tags.map(t=><span>{label(taxonomy.tags,t)}</span>)}</div>}
-        </article>)}
+        {ordered.map(r=><ReviewCard review={r} projectName={projects.find(p=>p.id===r.projectId)?.name}/>)}
       </div>
-      <div class="empty" id="no-reviews" hidden={reviews.length>0}><strong>{reviews.length ? '没有符合这些条件的评价' : '暂无公开评价'}</strong>{reviews.length>0 && <button id="reset" type="button">清除筛选</button>}</div>
+      <div class="project-empty" id="no-reviews" hidden={reviews.length>0}><strong>{reviews.length ? '没有符合这些条件的评价' : '暂无公开评价'}</strong>{reviews.length>0 && <div><button id="reset" type="button">清除筛选</button></div>}</div>
     </section>
+    </div>
+    {visibleStats && <aside id="ratings" aria-labelledby="ratings-title" class="studio-insights">
+      <div class="discovery-section-head"><h2 id="ratings-title"><i aria-hidden="true"></i>评分概况</h2></div>
+      <section class="studio-stat"><h3>评分分布</h3><p class="studio-stat-average"><strong>{scoreText(company.avgScore)}</strong> / 5 <span>共 {company.reviewCount} 篇评价</span></p>
+        {[5,4,3,2,1].map(n=><div class="bar-row"><span>{n} 星</span><div class="track"><i style={{width:(company.scoreDistribution[n] || 0)/company.reviewCount*100+'%'}}></i></div><b>{company.scoreDistribution[n] || 0}</b></div>)}
+      </section>
+      {groups.length>0 && <section class="studio-stat"><h3>画像统计</h3>{groups.map(g=><div class="group-row"><span>{g.title} · {g.text}</span><small>{g.count} 条 · 均分 {scoreText(g.avgScore)}</small></div>)}</section>}
+    </aside>}
   </div>
 </Layout>
 <script>
@@ -71,4 +74,14 @@ const statuses:Record<string,string> = {live:'已上线',dev:'在研',cancelled:
     selects.forEach(s => { s.value=''; }); applyFilters(); selects[0].focus();
   });
   applyFilters();
+  const sections = document.querySelectorAll<HTMLAnchorElement>('.studio-nav a');
+  function markSection() {
+    const current = location.hash || '#works';
+    sections.forEach(link=>{
+      if (link.hash === current) link.setAttribute('aria-current','location');
+      else link.removeAttribute('aria-current');
+    });
+  }
+  window.addEventListener('hashchange',markSection);
+  markSection();
 </script>

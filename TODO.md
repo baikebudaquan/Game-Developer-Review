@@ -48,7 +48,8 @@
 - [x] 拒绝：标记 D1 为 `rejected` 并记录原因
 - [x] 审计日志写入 D1 `audit_log`
 - [ ] GitHub OAuth Device Flow 登录（替代手动粘贴 PAT）
-- [ ] 控制台部署后与真实 token 联调（`gdr-admin.pages.dev`）
+- [x] 控制台部署后与真实 token 联调（`gdr-admin.pages.dev`）
+- [x] 本地一键控制台 `start-admin.cmd`，通过后自动构建并部署展示站
 - [ ] 批量通过（仅限已匹配公司且无敏感词命中）
 - [ ] 敏感词 / 正则扫描（手机号、身份证、邮箱、常见人名）
 - [ ] 相似文本重复提示（余弦 / 编辑距离）
@@ -62,8 +63,7 @@
 - [x] `site-deploy.yml`
 - [x] 首次 `dev → main` 合并，控制台 `publicBranch` 已改回 `main`
 - [x] 移除 `data/companies` 与 `data/reviews` 中的演示数据
-- [x] 新增 `cloudflare-site.yml`，push main 时构建并自动部署到 `gdr-site`
-- [ ] 仓库主人添加 `CLOUDFLARE_API_TOKEN` / `CLOUDFLARE_ACCOUNT_ID` secrets，启用自动部署
+- [x] 本地控制台通过后自动构建并部署 `gdr-site`
 - [ ] 开启 GitHub Pages 并恢复 `site-deploy.yml` 的 push 触发
 - [ ] 配置 `main` / `dev` 分支保护与 CODEOWNERS 实际权限
 
