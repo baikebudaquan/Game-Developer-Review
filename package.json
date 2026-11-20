@@ -5,10 +5,12 @@
   "scripts": {
     "data:validate": "node scripts/validate.mjs",
     "data:build": "node scripts/aggregate.mjs",
+    "data:build:dev": "node scripts/aggregate.mjs --test",
     "test:m2": "node scripts/test-m2.mjs",
     "test:m3": "node scripts/test-m3.mjs",
     "dev": "npm run data:build && npm run dev --workspace site",
     "build": "npm run data:validate && npm run data:build && npm run build --workspace site",
+    "build:dev": "npm run data:validate && npm run data:build:dev && npm run build --workspace site",
     "preview": "npm run preview --workspace site"
   }
 }
