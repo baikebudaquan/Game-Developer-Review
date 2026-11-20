@@ -1,6 +1,7 @@
 ---
 import Layout from '../components/Layout.astro';
 import Mark from '../components/Mark.astro';
+import NightCourier from '../components/NightCourier.astro';
 import { href, index, detail, taxonomy, label, month, scoreText } from '../lib/data';
 const sorted = index.companies.map(c => ({
   ...c, aliases: c.aliases ?? detail(c.id).company.aliases ?? [],
@@ -8,14 +9,14 @@ const sorted = index.companies.map(c => ({
 const stats = [[index.totals.companies,'家公司'], [index.totals.projects,'个项目'], [index.totals.reviews,'条评价']];
 ---
 <Layout title="游戏公司评价库">
-  <section class="hero">
-    <img class="hero-art" src={href('images/studio.webp')} alt="" />
+  <section class="hero courier-hero">
     <div class="hero-copy">
       <p class="eyebrow"><span class="pixel-cross" aria-hidden="true">✦</span> 游戏行业匿名评价</p>
       <h1>游戏公司评价库</h1>
       <p class="lede">从开发者的工作经历，了解游戏公司与项目。</p>
       <div class="stats">{stats.map(([n,text])=><span><strong>{n}</strong>{text}</span>)}</div>
     </div>
+    <NightCourier />
   </section>
   <section aria-labelledby="directory">
     <div class="section-title"><div><h2 id="directory">公司目录</h2><span class="total">{index.totals.companies}</span></div></div>
