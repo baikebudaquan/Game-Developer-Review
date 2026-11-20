@@ -34,6 +34,8 @@ assert.equal(input.company, '云岬互动');
 assert.equal(input.score, 4);
 assert.equal(input.consent, true);
 assert.deepEqual(input.profile, { role: 'program', tenure: '1-3y', employment: 'former', city: 'shanghai' });
+assert.equal(normalize({ ...base, companyId: 'c_mihoyo' }).companyId, 'c_mihoyo');
+assert.equal(normalize({ ...base, companyId: 'bad id' }).companyId, '');
 
 const ok = validate(input);
 assert.equal(ok.ok, true);

@@ -110,6 +110,7 @@ site/public/data/v1 ──► Astro 构建 ──► site/dist ──► GitHub 
 已实现：
 
 - `survey/`：原生表单 + JS 增强，15 秒总预算、5 秒单次超时、3 秒慢网提示、取消等待、本地草稿保留 7 天、复制 / 邮件兜底
+- 公司名支持从展示站目录选择已有公司（3 秒超时、7 天缓存、失败退回自由输入），提交时附带 `companyId` 提示
 - `POST /api/submit`：urlencoded 与 JSON 双通道、16 KB 限制、字段校验、蜜罐、PoW、IP 哈希限流、24 小时内容去重、幂等写入
 - D1 `submissions` 表：`pending` / `approved` / `rejected`，审核字段与 `audit_log` 审计表
 
@@ -143,7 +144,7 @@ npx wrangler pages deploy survey --project-name gdr-survey --branch main
 
 - PAT 登录：token 仅存 `sessionStorage`，由控制台 API 服务端校验身份与数据仓写权限，可选 `ADMIN_LOGINS` 白名单
 - 待审列表：读取 D1 中 `pending` 提交，支持搜索与风控标记展示
-- 详情编辑：公司匹配 / 新建、项目匹配 / 新建、脱敏修改正文、标签与画像
+- 详情编辑：优先按提交里的 `companyId` 预选公司，找不到再按名称/别名匹配；支持新建公司、项目、脱敏修改正文、标签与画像
 - 通过：Git Data API 一次提交 review 与 company 文件到公开仓，再标记 D1 状态为 `approved`
 - 拒绝：写 D1 `rejected` 与拒绝原因，同时写 `audit_log`
 - 配置集中在 [admin/config.js](admin/config.js)，登录页已带 `noindex` 与 CSP

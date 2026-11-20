@@ -12,6 +12,7 @@ export const LIMITS = {
 };
 
 const UUID_V4 = /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+const COMPANY_ID = /^c_[a-z0-9_-]+$/;
 
 export const isUuid = value => UUID_V4.test(value);
 
@@ -49,6 +50,7 @@ export function normalize(raw = {}) {
   if (CITIES.includes(raw.city)) profile.city = raw.city;
   return {
     submissionId: cleanLine(raw.submissionId),
+    companyId: COMPANY_ID.test(cleanLine(raw.companyId)) ? cleanLine(raw.companyId) : '',
     company: cleanLine(raw.company),
     project: cleanLine(raw.project),
     score: Number(raw.score),
