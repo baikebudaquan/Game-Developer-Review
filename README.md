@@ -43,6 +43,8 @@ GitHub 的细粒度令牌不支持写别人的个人仓库，协作者请用 cla
 
 两种 token 都只存在当前标签页的 `sessionStorage`，关闭标签页即失效；不要写进文件或提交到仓库。登录返回 403 时，先确认 token 对 `bkbdq/Game-Developer-Review` 有 Contents 写权限；仍不行就换另一种令牌。
 
+> 仓库发生过转移或改名后，旧 token（尤其是 fine-grained）会失效，需要按当前 owner `bkbdq` 重新创建；管理员协作者直接改用 classic token 即可。
+
 ### 审核
 
 1. 左侧选择一条待审提交
