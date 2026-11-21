@@ -4,6 +4,8 @@ import { config } from './config.js';
 import { h } from './lib/dom.js';
 import { bestKeyScore, buildAliasIndex, normalize, AUTO_MATCH_THRESHOLD } from './lib/match.js';
 import { createCombobox } from './lib/combo.js';
+import { scanDraft, highlightRanges } from './lib/sensitive.js';
+import { findSimilar } from './lib/similar.js';
 import {
   parseSubmission,
   parseJson,
@@ -20,6 +22,13 @@ import { publishReview, publishReviews } from './lib/publish.js';
 
 const TOKEN_KEY = 'gdr.admin.token';
 const STAGING_KEY = 'gdr.admin.staging';
+
+// M4·FE-4：拒绝原因下拉（内部记录，不通知提交者）
+const REJECT_REASONS = ['含个人信息', '疑似不实', '广告引流', '与公司无关', '重复提交', '涉及商业秘密', '其他'];
+// M4·FE-1：发布前检查清单条数
+const CHECKLIST_COUNT = 4;
+// M4·FE-3：相似内容提示阈值
+const SIMILAR_THRESHOLD = 0.75;
 
 const $ = selector => document.querySelector(selector);
 const loginView = $('#login-view');
@@ -40,7 +49,6 @@ const tabStaged = $('#tab-staged');
 const stagedBar = $('#staged-bar');
 const stagedSummary = $('#staged-summary');
 const publishBatchButton = $('#publish-batch-button');
-const stageButton = $('#stage-button');
 const detailEmpty = $('#detail-empty');
 const reviewForm = $('#review-form');
 const summaryEl = $('#submission-summary');
@@ -67,13 +75,21 @@ const newProjectStatus = $('#new-project-status');
 const scoreSelect = $('#review-score');
 const titleInput = $('#review-title');
 const commentInput = $('#review-comment');
+const commentPreview = $('#comment-preview');
+const sensitiveStatus = $('#sensitive-status');
+const similarBox = $('#similar-box');
 const tagList = $('#tag-list');
-const roleSelect = $('#profile-role');
 const tenureSelect = $('#profile-tenure');
-const employmentSelect = $('#profile-employment');
-const citySelect = $('#profile-city');
+const checklist = $('#checklist');
 const approveButton = $('#approve-button');
+const stageButton = $('#stage-button');
 const rejectButton = $('#reject-button');
+const rejectPanel = $('#reject-panel');
+const rejectReason = $('#reject-reason');
+const rejectNoteRow = $('#reject-note-row');
+const rejectNote = $('#reject-note');
+const rejectConfirmButton = $('#reject-confirm');
+const rejectCancelButton = $('#reject-cancel');
 const detailStatus = $('#detail-status');
 const globalStatus = $('#global-status');
 
@@ -92,6 +108,11 @@ const state = {
   selectedId: null,
   reviewId: null,
   busy: false,
+  sensitive: { hits: [], hasHard: false, hasSoft: false },
+  checked: new Set(),
+  reviewPaths: new Map(),
+  publishedReviews: new Map(),
+  similarToken: 0,
 };
 
 function setStatus(element, message, isError = false) {
@@ -125,12 +146,13 @@ function fillSelect(select, entries, emptyLabel = '不填') {
 
 function renderTaxonomyOptions() {
   const taxonomy = state.taxonomy;
-  fillSelect(roleSelect, taxonomy.roles);
   fillSelect(tenureSelect, taxonomy.tenures);
-  fillSelect(employmentSelect, taxonomy.employments);
-  fillSelect(citySelect, taxonomy.cities);
   tagList.replaceChildren(...taxonomy.tags.map(tag =>
     h('label', {}, h('input', { type: 'checkbox', value: tag.key }), tag.label)));
+  rejectReason.replaceChildren(
+    h('option', { value: '' }, '选择原因…'),
+    ...REJECT_REASONS.map(reason => h('option', { value: reason }, reason)),
+  );
 }
 
 function loadStaging() {
@@ -348,7 +370,7 @@ function matchProject(company, text, threshold = AUTO_MATCH_THRESHOLD) {
   return { project: null, hint: '' };
 }
 
-function renderProjectOptions(company, projectText) {
+function renderProjectOptions(company, projectText, { anon = false } = {}) {
   const idx = state.aliasIndex.get(company?.id);
   projectCombo.setOptions([
     { value: '__none', label: '不关联项目' },
@@ -362,8 +384,20 @@ function renderProjectOptions(company, projectText) {
         ...(idx?.projects.get(project.id) || []).map(k => ({ k })),
       ],
     })),
+    { value: '__anon', label: '匿名项目', sub: '不公开项目名，公司页归入匿名项目' },
     { value: '__new', label: '＋ 新建项目' },
   ]);
+
+  // M4·FE-5：用户勾了「不公开项目名」或审核员判断不宜公开 → 归入匿名项目
+  if (anon) {
+    projectCombo.setValue('__anon');
+    newProjectName.value = '';
+    newProjectId.dataset.touched = '';
+    newProjectId.value = '';
+    newProjectStatus.value = 'unknown';
+    toggleNewProject();
+    return '';
+  }
 
   const { project: matched, hint } = matchProject(company, projectText);
   const value = matched ? matched.id : (projectText ? '__new' : '__none');
@@ -503,19 +537,21 @@ function renderDetail(item) {
   newCompanyId.dataset.touched = '';
   newCompanyId.value = newCompanySlug.value ? `c_${newCompanySlug.value}` : 'c_';
 
-  const projectHint = renderProjectOptions(matched, view.project);
+  const projectHint = renderProjectOptions(matched, view.project, { anon: view.projectHidden });
   if (projectHint) notes.push(projectHint);
   setStatus(detailStatus, notes.join('；'));
   scoreSelect.value = String(view.score || 3);
   titleInput.value = '';
   commentInput.value = view.comment || '';
 
-  roleSelect.value = view.profile?.role || '';
   tenureSelect.value = view.profile?.tenure || '';
-  employmentSelect.value = view.profile?.employment || '';
-  citySelect.value = view.profile?.city || '';
-
   tagList.querySelectorAll('input').forEach(input => { input.checked = false; });
+
+  resetChecklist();
+  clearReviewArtifacts();
+  refreshSensitive();
+  refreshGate();
+  loadPublishedReviews(matched ? matched.id : null);
 }
 
 function showEmptyDetail() {
@@ -524,7 +560,9 @@ function showEmptyDetail() {
   state.selected = null;
   state.selectedId = null;
   state.reviewId = null;
+  clearReviewArtifacts();
   renderList();
+  refreshGate();
 }
 
 function selectItem(item) {
@@ -536,11 +574,9 @@ function selectItem(item) {
 }
 
 function collectProfile() {
+  // M4·FE-6 / 需求决策 4、5：画像只保留在职时长四区间
   const profile = {};
-  if (roleSelect.value) profile.role = roleSelect.value;
   if (tenureSelect.value) profile.tenure = tenureSelect.value;
-  if (employmentSelect.value) profile.employment = employmentSelect.value;
-  if (citySelect.value) profile.city = citySelect.value;
   return profile;
 }
 
@@ -548,13 +584,141 @@ function collectTags() {
   return [...tagList.querySelectorAll('input:checked')].map(input => input.value);
 }
 
+// ── 发布前门禁（M4·FE-1 检查清单 + FE-2 敏感信息） ──────────────────────
+function gateBlocked() {
+  return state.checked.size < CHECKLIST_COUNT || state.sensitive.hasHard;
+}
+
+function refreshGate() {
+  const blocked = state.busy || !state.selected || gateBlocked();
+  approveButton.disabled = blocked;
+  stageButton.disabled = blocked;
+  approveButton.textContent = state.busy ? '处理中…' : '通过并发布';
+}
+
 function setBusy(busy) {
   state.busy = busy;
-  approveButton.disabled = busy;
-  stageButton.disabled = busy;
   rejectButton.disabled = busy;
   publishBatchButton.disabled = busy || !state.staging.length;
-  approveButton.textContent = busy ? '处理中…' : '通过并发布';
+  refreshGate();
+}
+
+function clip(text, max = 24) {
+  const source = String(text || '').replace(/\s+/g, ' ').trim();
+  return source.length > max ? `${source.slice(0, max)}…` : source;
+}
+
+function resetChecklist() {
+  checklist.querySelectorAll('input.check-item').forEach(input => { input.checked = false; });
+  state.checked = new Set();
+}
+
+/** 正文预览：命中敏感片段标红（硬）/标黄（软），M4·FE-2 */
+function renderCommentPreview() {
+  const text = commentInput.value;
+  commentPreview.hidden = !text;
+  if (!text) {
+    commentPreview.replaceChildren();
+    return;
+  }
+  commentPreview.replaceChildren();
+  let cursor = 0;
+  for (const range of highlightRanges(state.sensitive.hits, text.length)) {
+    if (range.start > cursor) commentPreview.append(text.slice(cursor, range.start));
+    commentPreview.append(h('mark',
+      { class: range.level === 'hard' ? 'hit-hard' : 'hit-soft' },
+      text.slice(range.start, range.end)));
+    cursor = range.end;
+  }
+  if (cursor < text.length) commentPreview.append(text.slice(cursor));
+}
+
+function refreshSensitive() {
+  state.sensitive = scanDraft({ comment: commentInput.value, title: titleInput.value });
+  renderCommentPreview();
+  const hard = state.sensitive.hits.filter(hit => hit.level === 'hard');
+  const soft = state.sensitive.hits.filter(hit => hit.level === 'soft');
+  const parts = [];
+  if (hard.length) parts.push(`禁止发布：${hard.map(hit => `${hit.field}有${hit.type}「${clip(hit.fragment)}」`).join('、')}`);
+  if (soft.length) parts.push(`提醒：${soft.map(hit => `${hit.field}疑似${hit.type}「${clip(hit.fragment)}」`)}`);
+  setStatus(sensitiveStatus, parts.join('；') || '');
+  sensitiveStatus.classList.toggle('blocked', Boolean(hard.length));
+  sensitiveStatus.classList.toggle('warn', !hard.length && Boolean(soft.length));
+  refreshGate();
+}
+
+/** 当前公司的相似度候选：已发布评价（GitHub 加载）+ 本地暂存中同公司的条目 */
+function similarCandidates(companyId) {
+  const published = (state.publishedReviews.get(companyId) || [])
+    .map(review => ({ id: review.id, text: review.comment, tag: '已发布' }));
+  const staged = state.staging
+    .filter(entry => entry.company.id === companyId)
+    .map(entry => ({ id: entry.review.id, text: entry.review.comment, tag: '暂存' }));
+  return [...published, ...staged];
+}
+
+function renderSimilarNow() {
+  const companyId = state.companies.has(companyCombo.value) ? companyCombo.value : null;
+  const known = companyId && (state.publishedReviews.has(companyId) || !state.reviewPaths.get(companyId)?.length);
+  if (!companyId || !known || !state.reviewPaths.get(companyId)?.length) {
+    similarBox.hidden = true;
+    similarBox.replaceChildren();
+    return;
+  }
+  const hits = findSimilar(commentInput.value, similarCandidates(companyId), { threshold: SIMILAR_THRESHOLD });
+  if (!hits.length) {
+    similarBox.hidden = true;
+    similarBox.replaceChildren();
+    return;
+  }
+  similarBox.hidden = false;
+  similarBox.replaceChildren(
+    h('div', { class: 'similar-title' }, '⚠ 可能与已有评价重复（可继续发布，请人工确认）'),
+    h('ul', {}, ...hits.map(({ item, score }) => h('li', {},
+      `${item.tag} ${item.id} · 相似度 ${Math.round(score * 100)}% · 「${clip(item.text, 40)}」`))),
+  );
+}
+
+/** 拉取同公司已发布评价正文用于相似度对比，结果按公司缓存 */
+async function loadPublishedReviews(companyId) {
+  const token = ++state.similarToken;
+  if (!companyId || !state.reviewPaths.get(companyId)?.length) {
+    renderSimilarNow();
+    return;
+  }
+  try {
+    if (!state.publishedReviews.has(companyId)) {
+      const files = await Promise.all(state.reviewPaths.get(companyId).map(async path => {
+        const file = await state.client.getFile(config.owner, config.publicRepo, path, config.publicBranch);
+        return file ? parseJson(file.content, path) : null;
+      }));
+      state.publishedReviews.set(companyId, files.filter(Boolean)
+        .map(review => ({ id: review.id, comment: review.comment || '', title: review.title || '' })));
+    }
+  } catch {
+    // 相似度对比失败不阻塞审核
+  }
+  if (token === state.similarToken) renderSimilarNow();
+}
+
+function resetRejectPanel() {
+  rejectPanel.hidden = true;
+  rejectReason.value = '';
+  rejectNote.value = '';
+  rejectNoteRow.hidden = true;
+}
+
+function clearReviewArtifacts() {
+  state.checked = new Set();
+  state.sensitive = { hits: [], hasHard: false, hasSoft: false };
+  state.similarToken += 1;
+  commentPreview.hidden = true;
+  commentPreview.replaceChildren();
+  setStatus(sensitiveStatus, '');
+  sensitiveStatus.classList.remove('blocked', 'warn');
+  similarBox.hidden = true;
+  similarBox.replaceChildren();
+  resetRejectPanel();
 }
 
 async function loadAliases() {
@@ -593,6 +757,18 @@ async function loadData() {
   }));
   state.companies = new Map(companyFiles.filter(Boolean).map(company => [company.id, company]));
   state.aliasIndex = buildAliasIndex(state.companies, state.library);
+
+  // 记录每家公司已发布评价的文件路径，供相似度对比（M4·FE-3）按需拉取
+  const reviewPaths = new Map();
+  (companyTree.tree || []).forEach(item => {
+    if (item.type !== 'blob' || !item.path.startsWith(`${config.reviewsDir}/`) || !item.path.endsWith('.json')) return;
+    const companyId = item.path.split('/')[2];
+    if (!companyId) return;
+    if (!reviewPaths.has(companyId)) reviewPaths.set(companyId, []);
+    reviewPaths.get(companyId).push(item.path);
+  });
+  state.reviewPaths = reviewPaths;
+  state.publishedReviews = new Map();
 
   state.pending = (pendingResult.items || [])
     .map(item => {
@@ -662,6 +838,7 @@ function collectDraft() {
   const projectChoice = projectCombo.value;
   let newProject = null;
   let projectId = '';
+  let projectAnonymous = false;
   if (projectChoice === '__new') {
     newProject = {
       id: newProjectId.value.trim(),
@@ -669,6 +846,9 @@ function collectDraft() {
       status: newProjectStatus.value,
     };
     projectId = newProject.id;
+  } else if (projectChoice === '__anon') {
+    // M4·FE-5：匿名项目，不关联具体项目
+    projectAnonymous = true;
   } else if (projectChoice !== '__none') {
     projectId = projectChoice;
   }
@@ -697,6 +877,7 @@ function collectDraft() {
     id: state.reviewId,
     companyId: company.id,
     projectId,
+    projectAnonymous,
     score: Number(scoreSelect.value),
     title: titleInput.value.trim(),
     comment: commentInput.value.trim(),
@@ -716,6 +897,10 @@ function collectDraft() {
 
 function handleStage() {
   if (state.busy || !state.selected) return;
+  if (gateBlocked()) {
+    setStatus(detailStatus, '请先完成发布前检查清单；正文含敏感信息时需脱敏后再暂存', true);
+    return;
+  }
   const item = state.selected;
   try {
     const { review, company } = collectDraft();
@@ -797,6 +982,10 @@ async function publishStaged() {
 async function handleApprove(event) {
   event.preventDefault();
   if (state.busy || !state.selected) return;
+  if (gateBlocked()) {
+    setStatus(detailStatus, '请先完成发布前检查清单；正文含敏感信息时需脱敏后再发布', true);
+    return;
+  }
 
   const item = state.selected;
   setBusy(true);
@@ -832,22 +1021,34 @@ async function handleApprove(event) {
   }
 }
 
-async function handleReject() {
+function handleReject() {
+  if (state.busy || !state.selected) return;
+  rejectPanel.hidden = !rejectPanel.hidden;
+  if (!rejectPanel.hidden) rejectReason.focus();
+}
+
+async function handleRejectConfirm() {
   if (state.busy || !state.selected) return;
   const item = state.selected;
-  const reason = window.prompt('填写拒绝原因（会写入审计日志）');
-  if (reason === null) return;
-  if (!reason.trim()) {
-    setStatus(detailStatus, '拒绝原因不能为空', true);
+  const reason = rejectReason.value;
+  if (!reason) {
+    setStatus(detailStatus, '请选择拒绝原因', true);
     return;
   }
+  const note = rejectNote.value.trim();
+  if (reason === '其他' && !note) {
+    setStatus(detailStatus, '选「其他」时必须填写补充说明', true);
+    return;
+  }
+  const finalReason = reason === '其他' ? `其他：${note}` : reason;
 
   setBusy(true);
   setStatus(detailStatus, '正在拒绝…');
   try {
-    await state.api.reject(item.id, { reason: reason.trim() });
+    await state.api.reject(item.id, { reason: finalReason });
     state.pending = state.pending.filter(entry => entry.id !== item.id);
     state.pendingTotal = Math.max(0, state.pendingTotal - 1);
+    resetRejectPanel();
     showEmptyDetail();
     setStatus(globalStatus, `已拒绝 ${item.raw.submissionId}`);
   } catch (error) {
@@ -906,6 +1107,19 @@ stageButton.addEventListener('click', handleStage);
 publishBatchButton.addEventListener('click', publishStaged);
 reviewForm.addEventListener('submit', handleApprove);
 rejectButton.addEventListener('click', handleReject);
+rejectConfirmButton.addEventListener('click', handleRejectConfirm);
+rejectCancelButton.addEventListener('click', resetRejectPanel);
+rejectReason.addEventListener('change', () => { rejectNoteRow.hidden = rejectReason.value !== '其他'; });
+
+checklist.addEventListener('change', () => {
+  state.checked = new Set([...checklist.querySelectorAll('input.check-item:checked')].map(input => input.value));
+  refreshGate();
+});
+commentInput.addEventListener('input', () => {
+  refreshSensitive();
+  renderSimilarNow();
+});
+titleInput.addEventListener('input', refreshSensitive);
 
 newCompanyName.addEventListener('input', () => {
   if (matchCompanyByName()) return;
