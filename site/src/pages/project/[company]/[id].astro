@@ -1,6 +1,7 @@
 ---
 import Layout from '../../../components/Layout.astro';
 import ProjectCover from '../../../components/ProjectCover.astro';
+import ProjectStatus from '../../../components/ProjectStatus.astro';
 import ReviewCard from '../../../components/ReviewCard.astro';
 import { projects } from '../../../lib/projects';
 import { href } from '../../../lib/data';
@@ -13,7 +14,7 @@ const { project:p }=Astro.props;
   <nav class="project-crumb" aria-label="面包屑"><a href={href()}>项目发现</a> / <a href={href('company/'+p.slug+'/')}>{p.company}</a> / {p.name}</nav>
   <header class="project-mast"><ProjectCover project={p} eager/><div>
     <a class="studio-link" href={href('company/'+p.slug+'/')}>{p.company} ↗</a>
-    <h1>{p.name}</h1><span class="project-state">{p.status}</span>
+    <h1>{p.name}</h1><ProjectStatus status={p.statusKey}/>
     <div class="feature-grade"><b class:list={['grade',{neutral:p.ratio<.7}]}>{p.grade}</b><span>（{p.count} 篇评价）</span></div>
     <p>近 30 天 {p.recentPositive} 篇好评{p.count>0 && ` · 总好评率 ${Math.round(p.ratio*100)}%`}</p>
   </div></header>

@@ -2,24 +2,21 @@
 import Mark from './Mark.astro';
 import { href, scoreText, type Company } from '../lib/data';
 import { projectsByStudio } from '../lib/projects';
-interface Props { company: Company; spotlight?: boolean }
-const { company, spotlight=false } = Astro.props;
+interface Props { company: Company }
+const { company } = Astro.props;
 const titles = projectsByStudio.get(company.slug) ?? [];
 const featured = titles.find(p => p.cover);
 const banner = featured?.slug === 'cloudcape' && featured.id === 'p_windward'
   ? href('images/studios/cloudcape.webp') : featured?.cover;
-const Heading = spotlight ? 'h2' : 'h1';
 ---
-<header class:list={['studio-mast', {'studio-spotlight':spotlight}]} data-studio-mast>
+<header class="studio-mast">
   {banner && <img class="studio-panorama" src={banner} alt="" fetchpriority="high" />}
   <div class="studio-identity">
-    {spotlight && <p class="studio-pick">评价数最多的公司</p>}
     <div class="studio-name"><Mark slug={company.slug}/><div>
-      <Heading>{company.name}</Heading>
+      <h1>{company.name}</h1>
       {!!company.aliases?.length && <p>{company.aliases.join(' · ')}</p>}
     </div></div>
     <div class="studio-metrics"><span><b>{titles.length}</b> 个项目</span><span><b>{company.reviewCount}</b> 篇评价</span><span>综合评分 <b>{scoreText(company.avgScore)}</b> / 5</span></div>
-    {spotlight && <a class="review-cta" href={href('company/'+company.slug+'/')}>进入公司主页 <b>→</b></a>}
   </div>
   {featured && <a class="studio-art-link" href={featured.path}>{featured.name} <span aria-hidden="true">↗</span></a>}
 </header>

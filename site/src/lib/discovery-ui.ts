@@ -1,42 +1,20 @@
+import { getBoardPageSizes } from './project-board';
+
 function setupFeatured(feature: HTMLElement) {
   const slides = Array.from(feature.querySelectorAll<HTMLElement>('[data-slide]'));
   const dots = Array.from(feature.querySelectorAll<HTMLButtonElement>('[data-dot]'));
   const stage = feature.querySelector<HTMLElement>('.feature-stage')!;
-  const resetImages: (()=>void)[] = [];
   let current = 0;
-  slides.forEach(slide => {
-    const image = slide.querySelector<HTMLImageElement>('[data-cover-image]');
-    const previews = Array.from(slide.querySelectorAll<HTMLButtonElement>('[data-preview]'));
-    if (!image) { resetImages.push(()=>{}); return; }
-    const cover = image.getAttribute('src')!;
-    let selected = '';
-    function show(src: string) {
-      image!.src = src || cover;
-      slide.classList.toggle('show-scene', Boolean(src));
-      previews.forEach(b=>b.classList.toggle('previewing', Boolean(src) && b.dataset.preview===src));
-    }
-    function reset() {
-      selected = ''; show('');
-      previews.forEach(b=>b.setAttribute('aria-pressed','false'));
-    }
-    resetImages.push(reset);
-    previews.forEach(b => {
-      const src=b.dataset.preview!;
-      b.setAttribute('aria-pressed','false');
-      b.addEventListener('pointerenter',e=>{if(e.pointerType!=='touch') show(src);});
-      b.addEventListener('pointerleave',()=>show(selected));
-      b.addEventListener('focus',()=>show(src));
-      b.addEventListener('blur',()=>show(selected));
-      b.addEventListener('click',()=>{
-        selected=selected===src?'':src; show(selected);
-        previews.forEach(other=>other.setAttribute('aria-pressed',String(other.dataset.preview===selected)));
-      });
-      b.addEventListener('keydown',e=>{if(e.key==='Escape') reset();});
-    });
-  });
   if(slides.length<2) return;
+  const track = stage.querySelector<HTMLElement>('.feature-track')!;
+  const cards = Array.from(track.children) as HTMLElement[];
+  const first = cards.indexOf(slides[0]);
+  const previous = stage.querySelector<HTMLButtonElement>('[data-prev]')!;
+  const following = stage.querySelector<HTMLButtonElement>('[data-next]')!;
+  let slot = first;
   const rotate = feature.querySelector<HTMLButtonElement>('[data-rotate]')!;
-  let automatic = !matchMedia('(prefers-reduced-motion: reduce)').matches;
+  const reducedMotion = matchMedia('(prefers-reduced-motion: reduce)');
+  let automatic = !reducedMotion.matches;
   let timer = 0;
   function schedule() {
     window.clearTimeout(timer);
@@ -46,43 +24,84 @@ function setupFeatured(feature: HTMLElement) {
     if (!automatic || document.hidden || feature.hidden || feature.matches(':hover') || feature.contains(document.activeElement)) return;
     timer = window.setTimeout(()=>go(current+1),8000);
   }
+  const wrap = (i: number) => (i + slides.length) % slides.length;
+  function center(nextSlot: number) {
+    cards[slot].inert = true;
+    cards[slot].removeAttribute('aria-current');
+    slot = nextSlot;
+    cards[slot].inert = false;
+    cards[slot].setAttribute('aria-current','true');
+    track.style.setProperty('--offset',String(-slot));
+  }
+  function finishWrap() {
+    if (slot === first + current) return;
+    const focused = document.activeElement;
+    const focusIndex = Array.from(cards[slot].querySelectorAll('a')).findIndex(a=>a===focused);
+    track.removeAttribute('data-moving');
+    center(first + current);
+    // Commit the identical frame before the next animated step.
+    void track.offsetWidth;
+    if (focusIndex >= 0) cards[slot].querySelectorAll('a')[focusIndex]?.focus({preventScroll:true});
+  }
   function go(next: number) {
-    resetImages[current](); current=(next+slides.length)%slides.length;
-    slides.forEach((s,i)=>{s.hidden=i!==current;});
+    const target = wrap(next);
+    if (current === target) return;
+    finishWrap();
+    let step = next - current;
+    if (Math.abs(step) === slides.length-1 && Math.abs(step)>1) step = -Math.sign(step);
+    track.setAttribute('data-moving','');
+    center(slot + step);
+    current = target;
+    if (reducedMotion.matches) finishWrap();
     dots.forEach((b,i)=>{if(i===current) b.setAttribute('aria-current','true'); else b.removeAttribute('aria-current');});
+    previous.setAttribute('aria-label','上一个项目：'+slides[wrap(current-1)].querySelector('h3')!.textContent);
+    following.setAttribute('aria-label','下一个项目：'+slides[wrap(current+1)].querySelector('h3')!.textContent);
     schedule();
   }
+  track.addEventListener('transitionend',e=>{
+    if (e.target===track && e.propertyName==='transform') finishWrap();
+  });
   rotate.addEventListener('click',()=>{automatic=!automatic; schedule();});
+  reducedMotion.addEventListener('change', () => {
+    if (reducedMotion.matches) { automatic = false; finishWrap(); schedule(); }
+  });
   feature.addEventListener('pointerenter',()=>window.clearTimeout(timer));
   feature.addEventListener('pointerleave',schedule);
   feature.addEventListener('focusin',()=>window.clearTimeout(timer));
   feature.addEventListener('focusout',()=>queueMicrotask(schedule));
   document.addEventListener('visibilitychange',schedule);
-  new MutationObserver(schedule).observe(feature,{attributes:true,attributeFilter:['hidden']});
+  new MutationObserver(() => {
+    if (feature.hidden) finishWrap();
+    schedule();
+  }).observe(feature,{attributes:true,attributeFilter:['hidden']});
   schedule();
-  feature.querySelector('[data-prev]')!.addEventListener('click',()=>go(current-1));
-  feature.querySelector('[data-next]')!.addEventListener('click',()=>go(current+1));
+  previous.addEventListener('click',()=>go(current-1));
+  following.addEventListener('click',()=>go(current+1));
   dots.forEach((dot,i)=>dot.addEventListener('click',()=>go(i)));
   feature.addEventListener('keydown',e=>{
     if(e.key!=='ArrowLeft' && e.key!=='ArrowRight') return;
     e.preventDefault(); go(current+(e.key==='ArrowLeft'?-1:1)); dots[current].focus();
   });
   let start: {x:number;y:number}|undefined;
-  let suppressClick=false;
   stage.addEventListener('touchstart',e=>{
-    const t=e.touches[0]; start=e.touches.length===1?{x:t.clientX,y:t.clientY}:undefined; suppressClick=false;
+    const t=e.touches[0]; start=e.touches.length===1?{x:t.clientX,y:t.clientY}:undefined;
   },{passive:true});
   stage.addEventListener('touchcancel',()=>{start=undefined;});
+  stage.addEventListener('touchmove', e => {
+    if (!start || !e.cancelable) return;
+    const dx = Math.abs(e.touches[0].clientX - start.x);
+    const dy = Math.abs(e.touches[0].clientY - start.y);
+    if (dx > 12 && dx > dy * 1.4) e.preventDefault();
+  }, {passive:false});
   stage.addEventListener('touchend',e=>{
     if(!start) return;
     const t=e.changedTouches[0], dx=t.clientX-start.x, dy=t.clientY-start.y;
     if(Math.abs(dx)>45 && Math.abs(dx)>Math.abs(dy)*1.4) {
-      go(current+(dx<0?1:-1)); suppressClick=true;
-      window.setTimeout(()=>{suppressClick=false;},400);
+      if (e.cancelable) e.preventDefault();
+      go(current+(dx<0?1:-1));
     }
     start=undefined;
-  },{passive:true});
-  stage.addEventListener('click',e=>{if(suppressClick){e.preventDefault();e.stopPropagation();}},{capture:true});
+  },{passive:false});
 }
 
 export function setupDiscovery() {
@@ -95,17 +114,97 @@ export function setupDiscovery() {
   const clear=box.querySelector<HTMLButtonElement>('[data-clear]')!;
   const menu=box.querySelector<HTMLElement>('.search-menu')!;
   const links=Array.from(menu.querySelectorAll<HTMLAnchorElement>('[data-search]'));
-  const tiles=Array.from(home.querySelectorAll<HTMLAnchorElement>('[data-project]'));
+  const board=home.querySelector<HTMLElement>('#projects')!;
+  const tiles=Array.from(board.querySelectorAll<HTMLAnchorElement>('[data-project]'));
+  const picks=tiles.filter(tile=>tile.hasAttribute('data-pick'));
   const status=home.querySelector<HTMLElement>('[data-search-status]')!;
+  const pagination=home.querySelector<HTMLElement>('.project-pagination')!;
+  const previousPage=pagination.querySelector<HTMLButtonElement>('[data-page-prev]')!;
+  const nextPage=pagination.querySelector<HTMLButtonElement>('[data-page-next]')!;
+  const pageLabel=pagination.querySelector<HTMLElement>('[data-page-label]')!;
+  const heading=home.querySelector<HTMLElement>('#library-title')!;
+  const arrows=board.querySelector<HTMLElement>('[data-board-arrows]')!;
+  const previousGroup=arrows.querySelector<HTMLButtonElement>('[data-board-prev]')!;
+  const nextGroup=arrows.querySelector<HTMLButtonElement>('[data-board-next]')!;
+  const indicators=board.querySelector<HTMLElement>('[data-board-dots]')!;
+  const dots=Array.from(indicators.querySelectorAll<HTMLButtonElement>('[data-board-dot]'));
+  const groups=getBoardPageSizes(picks.length);
+  const groupCount=groups.length;
+  const positions={overview:0, search:0};
+  let mode:keyof typeof positions='overview';
+  let previousQuery='';
+  let results=picks;
+
+  function renderPage() {
+    const overview=mode==='overview';
+    const pageSize=10;
+    const index=positions[mode];
+    const pages=overview ? groupCount : Math.ceil(results.length/pageSize);
+    const start=overview ? groups.slice(0,index).reduce((sum,size)=>sum+size,0) : index*pageSize;
+    const visible=results.slice(start,start+(overview ? groups[index] ?? 0 : pageSize));
+    board.dataset.boardMode=mode;
+    if (overview) board.dataset.boardCount=String(visible.length);
+    else delete board.dataset.boardCount;
+    for (const tile of tiles) {
+      const slot=visible.indexOf(tile);
+      tile.hidden=slot<0;
+      if (overview && slot>=0) tile.dataset.boardSlot=String(slot+1);
+      else delete tile.dataset.boardSlot;
+    }
+    arrows.hidden=indicators.hidden=!overview || groupCount<=1;
+    dots.forEach((dot,i)=>{
+      if (i===positions.overview) dot.setAttribute('aria-current','true');
+      else dot.removeAttribute('aria-current');
+    });
+    pagination.hidden=overview || pages<=1;
+    previousPage.disabled=index===0;
+    nextPage.disabled=index+1>=pages;
+    pageLabel.textContent=`第 ${index+1} / ${pages} 页`;
+  }
+  function showGroup(target: number) {
+    if (mode!=='overview' || groupCount<2) return;
+    positions.overview=(target+groupCount)%groupCount;
+    renderPage();
+    status.textContent=`第 ${positions.overview+1} / ${groupCount} 组，共 ${picks.length} 个项目`;
+  }
+  previousGroup.addEventListener('click',()=>showGroup(positions.overview-1));
+  nextGroup.addEventListener('click',()=>showGroup(positions.overview+1));
+  dots.forEach((dot,i)=>dot.addEventListener('click',()=>showGroup(i)));
+  board.addEventListener('keydown',e=>{
+    const control=e.target;
+    if (mode!=='overview' || groupCount<2 || !(control instanceof HTMLElement)) return;
+    if (e.altKey || e.ctrlKey || e.metaKey || !['ArrowLeft','ArrowRight'].includes(e.key)) return;
+    if (!control.closest('.board-stage,[data-board-dots]')) return;
+    const fromTile=control.closest<HTMLElement>('[data-board-slot]');
+    e.preventDefault();
+    showGroup(positions.overview+(e.key==='ArrowRight'?1:-1));
+    if (indicators.contains(control)) dots[positions.overview].focus();
+    else if (fromTile) board.querySelector<HTMLElement>('[data-board-slot="1"]')?.focus();
+  });
+  function turnPage(step: number) {
+    positions.search+=step;
+    renderPage();
+    status.textContent=`${pageLabel.textContent}，共 ${results.length} 个项目`;
+    heading.focus({preventScroll:true});
+    heading.scrollIntoView({block:'nearest'});
+  }
+  previousPage.addEventListener('click',()=>turnPage(-1));
+  nextPage.addEventListener('click',()=>turnPage(1));
   function update(open: boolean) {
     const query=input.value.trim().normalize('NFKC').toLocaleLowerCase();
-    let count=0;
-    for(const tile of tiles){tile.hidden=!tile.dataset.project!.includes(query); if(!tile.hidden) count++;}
+    if (query!==previousQuery) positions.search=0;
+    previousQuery=query;
+    mode=query ? 'search' : 'overview';
+    results=query ? tiles.filter(tile=>tile.dataset.project!.includes(query)) : picks;
+    const count=results.length;
+    renderPage();
     clear.hidden=!query;
     if(feature) feature.hidden=Boolean(query);
-    home.querySelector<HTMLElement>('[data-library-title]')!.textContent=query?'项目搜索结果':'全部项目';
+    home.querySelector<HTMLElement>('[data-library-title]')!.textContent=query?'项目搜索结果':'近期好评项目';
     home.querySelector<HTMLElement>('[data-result-count]')!.textContent=String(count);
-    home.querySelector<HTMLElement>('[data-empty]')!.hidden=count!==0;
+    home.querySelector<HTMLElement>('[data-empty]')!.hidden=!query || count!==0;
+    home.querySelector<HTMLElement>('[data-no-picks]')!.hidden=Boolean(query) || count!==0;
+    home.querySelector<HTMLElement>('.ranking-rule')!.hidden=Boolean(query);
     const matches=links.filter(link=>link.dataset.search!.includes(query));
     // Prefer direct company or project name matches over a project matched via its parent company.
     const rank=(link:HTMLAnchorElement)=>{

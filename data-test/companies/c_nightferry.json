@@ -11,6 +11,11 @@
       "id": "p_lastferry",
       "name": "末班渡船",
       "status": "live"
+    },
+    {
+      "id": "p_rainport",
+      "name": "雨港修船厂",
+      "status": "dev"
     }
   ],
   "createdAt": "2026-10-11",

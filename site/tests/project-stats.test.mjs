@@ -1,9 +1,18 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { projectStats, compareProjects } from '../src/lib/project-stats.ts';
+import { projectStats, compareProjects, isRecentPick } from '../src/lib/project-stats.ts';
 
 const asOf='2026-11-20';
 const review=(score,publishedAt=asOf)=>({score,publishedAt});
+test('近期好评榜同时检查平均分、总好评率和窗口内好评',()=>{
+  const eligible = { meanScore:4, ratio:.7, recentPositive:1 };
+  assert.ok(isRecentPick(eligible));
+  assert.equal(isRecentPick({ ...eligible, ratio:.69, recentPositive:100 }),false);
+  assert.equal(isRecentPick({ ...eligible, recentPositive:0 }),false);
+  assert.equal(isRecentPick({ ...eligible, meanScore:3.99 }),false);
+  assert.equal(isRecentPick(projectStats([4,4,4,1].map(s=>review(s)),asOf)),false);
+  assert.equal(isRecentPick(projectStats([],asOf)),false);
+});
 test('近30个自然日包含今天和首日，仅4或5星计为好评',()=>{
   const stats=projectStats([review(5,'2026-10-21'),review(4,'2026-10-22'),review(5),review(3),review(4,'2026-11-21')],asOf);
   assert.equal(stats.recentPositive,2);

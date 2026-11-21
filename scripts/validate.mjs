@@ -93,7 +93,8 @@ function validateCompany(fileName) {
   (company.projects || []).forEach((project, index) => {
     const projectLabel = `${label}.projects[${index}]`;
     if (!isObject(project)) return fail(`${projectLabel}：必须是对象`);
-    checkKeys(project, ['id', 'name', 'status', 'genre'], projectLabel);
+    checkKeys(project, ['id', 'name', 'status', 'genre', 'featuredReviewId'], projectLabel);
+    if (project.featuredReviewId !== undefined && !/^rv_[A-Za-z0-9]+$/.test(project.featuredReviewId)) fail(`${projectLabel}：精选评价 ID 不合法`);
     if (!/^p_[a-z0-9_-]+$/.test(project.id || '')) fail(`${projectLabel}：id 不合法`);
     if (projectIds.has(project.id)) fail(`${projectLabel}：id 重复 ${project.id}`);
     projectIds.add(project.id);

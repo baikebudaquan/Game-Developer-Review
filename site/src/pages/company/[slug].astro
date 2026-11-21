@@ -6,7 +6,6 @@ import ReviewCard from '../../components/ReviewCard.astro';
 import { projectsByStudio } from '../../lib/projects';
 import '../../styles/studios.css';
 import { detail, index, href, taxonomy, scoreText, label } from '../../lib/data';
-import type { ProfileKey } from '../../lib/data';
 export function getStaticPaths() {
   return index.companies.map(c => ({ params: { slug: c.slug }, props: { data: detail(c.id) } }));
 }
@@ -14,17 +13,16 @@ const { company, projects, byProfile, reviews } = Astro.props.data;
 const ordered = [...reviews].sort((a,b)=>b.publishedAt.localeCompare(a.publishedAt));
 const visibleStats = company.reviewCount >= 3;
 const dimensions = [
-  ['role','岗位',taxonomy.roles], ['tenure','司龄',taxonomy.tenures],
+  ['tenure','司龄',taxonomy.tenures],
   ['employment','在职状态',taxonomy.employments], ['city','城市',taxonomy.cities],
 ] as const;
 const groups = dimensions.flatMap(([key,title,items])=>(byProfile?.[key] || [])
   .filter(cell=>cell.count>=3).map(cell=>({...cell,title,text:label(items,cell.key)})));
-const filterItems = (key:ProfileKey) => new Set(reviews.map(r=>r.profile?.[key]).filter(Boolean));
-const roles = filterItems('role'), tenures = filterItems('tenure');
+const tenures = new Set(reviews.map(r=>r.profile?.tenure).filter(Boolean));
 const titles = projectsByStudio.get(company.slug) ?? [];
 ---
 <Layout title={company.name} active="companies" dark>
-  <nav class="project-crumb" aria-label="面包屑"><a href={href('companies/')}>公司目录</a><span> / </span>{company.name}</nav>
+  <nav class="studio-back" aria-label="返回导航"><a class="review-cta" href={href('companies/')}><span aria-hidden="true">←</span> 返回公司目录</a></nav>
   <StudioMasthead company={company}/>
   <nav class="studio-nav" aria-label="公司主页分区">
     <a href="#works">旗下项目 <small>{titles.length}</small></a><a href="#reviews">开发者评价 <small>{reviews.length}</small></a>{visibleStats && <a href="#ratings">评分概况</a>}
@@ -32,14 +30,13 @@ const titles = projectsByStudio.get(company.slug) ?? [];
   <div class:list={['studio-layout',{'with-stats':visibleStats}]}>
     <div class="studio-main">
     <section id="works" aria-labelledby="works-title"><div class="discovery-section-head"><h2 id="works-title"><i aria-hidden="true"></i>旗下项目</h2></div>
-      <div class="studio-projects">{titles.map(p=><ProjectTile project={p} inStudio showRating={visibleStats}/>)}</div>
+      <div class="studio-projects">{titles.map(p=><ProjectTile project={p} inStudio/>)}</div>
       {titles.length===0 && <p class="project-empty">暂无收录项目</p>}
     </section>
     <section id="reviews" class="project-reviews studio-reviews" aria-labelledby="reviews-title">
       <div class="discovery-section-head"><h2 id="reviews-title"><i aria-hidden="true"></i>开发者评价<small id="matches" aria-live="polite">{reviews.length}</small></h2></div>
       <div class="filters">
         <label>项目<select id="project"><option value="">全部项目</option>{projects.map(p=><option value={p.id}>{p.name}</option>)}</select></label>
-        <label>岗位<select id="role"><option value="">全部岗位</option>{taxonomy.roles.filter(x=>roles.has(x.key)).map(x=><option value={x.key}>{x.label}</option>)}</select></label>
         <label>司龄<select id="tenure"><option value="">全部司龄</option>{taxonomy.tenures.filter(x=>tenures.has(x.key)).map(x=><option value={x.key}>{x.label}</option>)}</select></label>
       </div>
       <div class="reviews">

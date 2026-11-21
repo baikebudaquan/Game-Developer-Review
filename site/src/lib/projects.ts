@@ -1,5 +1,5 @@
 import { detail, href, index } from './data';
-import { compareProjects, projectStats } from './project-stats';
+import { compareProjects, isRecentPick, projectStats } from './project-stats';
 
 const artwork: Record<string, [string, string]> = {
   p_kite: ['THE KITE MENDER','kite'], p_windward: ['WINDWARD ISLES','windward'],
@@ -16,18 +16,20 @@ export const projects = index.companies.flatMap(c => {
   const aliases = data.company.aliases ?? [];
   return data.projects.map(project => {
     const reviews = data.reviews.filter(r=>r.projectId===project.id).sort((a,b)=>b.publishedAt.localeCompare(a.publishedAt));
+    const featuredReview = reviews.find(r=>r.id===project.featuredReviewId)
+      ?? reviews.find(r=>r.score>=4) ?? reviews[0];
     const art = artwork[project.id];
-    const scenes = art ? [1,2,3,4].map(n=>href(`images/projects/${art[1]}-${n}.webp`)) : [];
-    const wordmark = art?.[0] || project.name;
-    const cover = project.id==='p_kite' ? href('images/projects/kite-cover.webp') : scenes[0];
+    const cover = art && href('images/projects/' + (project.id === 'p_kite' ? 'kite-cover' : art[1] + '-1') + '.webp');
+    const scene = art && href(`images/projects/${art[1]}-2.webp`);
     return {
-      id: project.id, name: project.name, status: statuses[project.status] || '状态未知',
-      company: c.name, slug:c.slug, aliases, reviews, scenes, cover, wordmark,
+      id: project.id, name: project.name, statusKey: project.status, status: statuses[project.status] || statuses.unknown,
+      company: c.name, slug:c.slug, aliases, reviews, featuredReview, cover, scene,
       path:href(`project/${encodeURIComponent(c.slug)}/${encodeURIComponent(project.id)}/`),
-      search:[c.name,c.slug,...aliases,project.name,wordmark].join(' ').normalize('NFKC').toLocaleLowerCase(),
+      search:[c.name,c.slug,...aliases,project.name,art?.[0]].join(' ').normalize('NFKC').toLocaleLowerCase(),
       ...projectStats(reviews,asOf)
     };
   });
 }).sort(compareProjects);
 export type Project = (typeof projects)[number];
+export const recentPicks = projects.filter(isRecentPick);
 export const projectsByStudio = Map.groupBy(projects, project => project.slug);
