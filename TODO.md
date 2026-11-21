@@ -44,6 +44,7 @@
 - [x] `admin/` 静态 SPA 与管理员登录（PAT、sessionStorage、服务端权限校验）
 - [x] 控制台 Pages Functions API：登录校验、待审列表、通过、拒绝、审计
 - [x] 待审列表、详情、公司 / 项目匹配、脱敏编辑
+- [x] 公司 / 项目可搜索选择与模糊匹配（内置常见游戏公司 / 项目别名库 `admin/lib/aliases.json`，`npm run test:admin`）
 - [x] 通过：Git Data API 单次原子提交到公开仓，并标记 D1 为 `approved`
 - [x] 拒绝：标记 D1 为 `rejected` 并记录原因
 - [x] 审计日志写入 D1 `audit_log`

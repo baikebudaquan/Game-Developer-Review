@@ -1,6 +1,9 @@
 import { createClient } from './lib/github.js';
 import { createApi } from './lib/api.js';
 import { config } from './config.js';
+import { h } from './lib/dom.js';
+import { bestKeyScore, buildAliasIndex, normalize, AUTO_MATCH_THRESHOLD } from './lib/match.js';
+import { createCombobox } from './lib/combo.js';
 import {
   parseSubmission,
   parseJson,
@@ -41,8 +44,18 @@ const stageButton = $('#stage-button');
 const detailEmpty = $('#detail-empty');
 const reviewForm = $('#review-form');
 const summaryEl = $('#submission-summary');
-const companySelect = $('#company-select');
-const projectSelect = $('#project-select');
+const companyCombo = createCombobox({
+  input: $('#company-input'),
+  list: $('#company-list'),
+  onSelect: handleCompanySelect,
+  onBlur: handleCompanyBlur,
+});
+const projectCombo = createCombobox({
+  input: $('#project-input'),
+  list: $('#project-list'),
+  onSelect: handleProjectSelect,
+  onBlur: handleProjectBlur,
+});
 const newCompanyBox = $('#new-company');
 const newCompanyId = $('#new-company-id');
 const newCompanySlug = $('#new-company-slug');
@@ -69,6 +82,8 @@ const state = {
   api: null,
   taxonomy: null,
   companies: new Map(),
+  library: { companies: [], projects: [] },
+  aliasIndex: new Map(),
   pending: [],
   pendingTotal: 0,
   staging: loadStaging(),
@@ -78,22 +93,6 @@ const state = {
   reviewId: null,
   busy: false,
 };
-
-function h(tag, attrs = {}, ...children) {
-  const element = document.createElement(tag);
-  Object.entries(attrs).forEach(([key, value]) => {
-    if (key === 'class') element.className = value;
-    else if (key === 'dataset') Object.assign(element.dataset, value);
-    else if (key.startsWith('on')) element.addEventListener(key.slice(2).toLowerCase(), value);
-    else if (key in element) element[key] = value;
-    else element.setAttribute(key, value);
-  });
-  children.flat().forEach(child => {
-    if (child === null || child === undefined || child === false) return;
-    element.append(child.nodeType ? child : document.createTextNode(String(child)));
-  });
-  return element;
-}
 
 function setStatus(element, message, isError = false) {
   element.textContent = message || '';
@@ -227,11 +226,11 @@ function unstageItem(submissionId) {
 }
 
 function toggleNewCompany() {
-  newCompanyBox.hidden = companySelect.value !== '__new';
+  newCompanyBox.hidden = companyCombo.value !== '__new';
 }
 
 function toggleNewProject() {
-  newProjectBox.hidden = projectSelect.value !== '__new';
+  newProjectBox.hidden = projectCombo.value !== '__new';
 }
 
 function syncCompanyFields() {
@@ -249,7 +248,7 @@ function matchCompanyByName() {
   const matched = name ? findCompany(name) : null;
   if (!matched) return false;
   const pendingProject = newProjectName.value.trim();
-  companySelect.value = matched.id;
+  companyCombo.setValue(matched.id);
   toggleNewCompany();
   renderProjectOptions(matched, pendingProject);
   setStatus(detailStatus, `已匹配现有公司「${matched.name}」，无需新建`);
@@ -264,33 +263,200 @@ function syncProjectId() {
 
 function matchProjectByName() {
   const name = newProjectName.value.trim();
-  const company = companySelect.value === '__new' ? null : state.companies.get(companySelect.value);
+  const company = companyCombo.value === '__new' ? null : state.companies.get(companyCombo.value);
   if (!name || !company) return false;
   const target = name.toLowerCase();
   const matched = company.projects.find(project => project.name.toLowerCase() === target);
   if (!matched) return false;
-  projectSelect.value = matched.id;
+  projectCombo.setValue(matched.id);
   toggleNewProject();
   setStatus(detailStatus, `已匹配现有项目「${matched.name}」，无需新建`);
   return true;
 }
 
-function renderProjectOptions(company, projectName) {
-  projectSelect.replaceChildren(h('option', { value: '__none' }, '不关联项目'));
-  (company?.projects || []).forEach(project => {
-    projectSelect.append(h('option', { value: project.id }, `${project.name}（${project.id}）`));
-  });
-  projectSelect.append(h('option', { value: '__new' }, '＋ 新建项目'));
+/**
+ * 一个公司的全部检索键：名称 / ID / slug / 自带别名 / 别名库补充别名，
+ * 以及项目名与项目别名（命中项目时顺带把公司带出来）。
+ */
+function companyKeys(company) {
+  const idx = state.aliasIndex.get(company.id);
+  const keys = [
+    { k: company.name },
+    { k: company.id },
+    ...(company.slug ? [{ k: company.slug }] : []),
+    ...(company.aliases || []).map(k => ({ k })),
+    ...(idx?.aliases || []).map(k => ({ k })),
+  ];
+  for (const project of company.projects || []) {
+    keys.push({ k: project.name, project: project.id, pn: project.name });
+    for (const alias of idx?.projects.get(project.id) || []) {
+      keys.push({ k: alias, project: project.id, pn: project.name });
+    }
+  }
+  for (const extra of idx?.extra || []) {
+    keys.push({ k: extra.name, project: null, pn: extra.name });
+    for (const alias of extra.aliases) keys.push({ k: alias, project: null, pn: extra.name });
+  }
+  return keys;
+}
 
-  const target = String(projectName || '').trim().toLowerCase();
-  const matched = target ? company?.projects.find(project => project.name.toLowerCase() === target) : null;
-  projectSelect.value = matched ? matched.id : (projectName ? '__new' : '__none');
+/** 在全部公司里模糊查找，threshold 提高可只接受精确 / 前缀命中。 */
+function matchCompany(text, threshold = AUTO_MATCH_THRESHOLD) {
+  if (!text) return null;
+  let best = null;
+  for (const company of state.companies.values()) {
+    const { score, key } = bestKeyScore(text, companyKeys(company));
+    if (score >= threshold && (!best || score > best.score)) best = { company, score, key };
+  }
+  return best;
+}
 
-  newProjectName.value = projectSelect.value === '__new' ? projectName : '';
+/**
+ * 在指定公司下模糊匹配项目，返回 { project, hint }。
+ * hint 用于别名命中与「公司下还没建这个项目」的提示。
+ */
+function matchProject(company, text, threshold = AUTO_MATCH_THRESHOLD) {
+  if (!company || !text) return { project: null, hint: '' };
+  const idx = state.aliasIndex.get(company.id);
+  let best = null;
+  for (const project of company.projects || []) {
+    const keys = [
+      { k: project.name },
+      { k: project.id },
+      ...(idx?.projects.get(project.id) || []).map(k => ({ k })),
+    ];
+    const { score, key } = bestKeyScore(text, keys);
+    if (score >= threshold && (!best || score > best.score)) best = { project, key };
+  }
+  if (best) {
+    const keyText = best.key?.k ? normalize(best.key.k) : '';
+    const viaAlias = keyText && keyText !== normalize(best.project.name) && keyText !== normalize(best.project.id);
+    return {
+      project: best.project,
+      hint: viaAlias ? `已按别名「${best.key.k}」匹配项目「${best.project.name}」` : '',
+    };
+  }
+  for (const extra of idx?.extra || []) {
+    const { score, key } = bestKeyScore(text, [{ k: extra.name }, ...extra.aliases.map(k => ({ k }))]);
+    if (score >= threshold) {
+      return {
+        project: null,
+        hint: `「${text}」接近已知项目「${extra.name}」（命中「${key?.k}」），当前公司还没有该项目`,
+      };
+    }
+  }
+  return { project: null, hint: '' };
+}
+
+function renderProjectOptions(company, projectText) {
+  const idx = state.aliasIndex.get(company?.id);
+  projectCombo.setOptions([
+    { value: '__none', label: '不关联项目' },
+    ...(company?.projects || []).map(project => ({
+      value: project.id,
+      label: project.name,
+      sub: project.id,
+      keys: [
+        { k: project.name },
+        { k: project.id },
+        ...(idx?.projects.get(project.id) || []).map(k => ({ k })),
+      ],
+    })),
+    { value: '__new', label: '＋ 新建项目' },
+  ]);
+
+  const { project: matched, hint } = matchProject(company, projectText);
+  const value = matched ? matched.id : (projectText ? '__new' : '__none');
+  projectCombo.setValue(value, matched ? matched.name : projectText);
+  newProjectName.value = value === '__new' ? projectText : '';
   newProjectId.dataset.touched = '';
   newProjectId.value = newProjectName.value.trim() ? `p_${autoSlug(newProjectName.value)}` : '';
   newProjectStatus.value = 'unknown';
   toggleNewProject();
+  return hint;
+}
+
+function handleCompanySelect(value, { query = '', projectName = '' } = {}) {
+  if (value === '__new') {
+    const text = query.trim();
+    if (text) newCompanyName.value = text;
+    newCompanySlug.dataset.touched = '';
+    newCompanyId.dataset.touched = '';
+    syncCompanyFields();
+    toggleNewCompany();
+    if (matchCompanyByName()) return;
+    renderProjectOptions(null, '');
+    return;
+  }
+  toggleNewCompany();
+  renderProjectOptions(state.companies.get(value) || null, projectName);
+}
+
+function handleCompanyBlur(text) {
+  const value = companyCombo.value;
+  const query = text.trim();
+  if (value !== '__new' && query === companyCombo.labelOf(value)) return;
+  if (!query) {
+    companyCombo.setValue(value);
+    return;
+  }
+  if (value === '__new' && query === newCompanyName.value.trim()) return;
+
+  // 搜了但没点：命中足够可信就自动选中，否则按新建公司处理
+  const matched = matchCompany(query, 90);
+  if (matched) {
+    companyCombo.setValue(matched.company.id);
+    toggleNewCompany();
+    renderProjectOptions(matched.company, '');
+    setStatus(detailStatus, `已选择公司「${matched.company.name}」`);
+    return;
+  }
+  companyCombo.setValue('__new', query);
+  newCompanyName.value = query;
+  newCompanySlug.dataset.touched = '';
+  newCompanyId.dataset.touched = '';
+  syncCompanyFields();
+  toggleNewCompany();
+  if (!matchCompanyByName()) renderProjectOptions(null, '');
+}
+
+function handleProjectSelect(value, { query = '' } = {}) {
+  if (value === '__new') {
+    const text = query.trim();
+    if (text) newProjectName.value = text;
+    newProjectId.dataset.touched = '';
+    syncProjectId();
+    toggleNewProject();
+    matchProjectByName();
+    return;
+  }
+  toggleNewProject();
+}
+
+function handleProjectBlur(text) {
+  const value = projectCombo.value;
+  const query = text.trim();
+  if (value !== '__new' && query === projectCombo.labelOf(value)) return;
+  if (!query) {
+    projectCombo.setValue(value);
+    return;
+  }
+  if (value === '__new' && query === newProjectName.value.trim()) return;
+
+  const company = state.companies.get(companyCombo.value);
+  const { project: matched } = matchProject(company, query, 90);
+  if (matched) {
+    projectCombo.setValue(matched.id);
+    toggleNewProject();
+    setStatus(detailStatus, `已选择项目「${matched.name}」`);
+    return;
+  }
+  projectCombo.setValue('__new', query);
+  newProjectName.value = query;
+  newProjectId.dataset.touched = '';
+  syncProjectId();
+  toggleNewProject();
+  matchProjectByName();
 }
 
 function renderDetail(item) {
@@ -310,15 +476,25 @@ function renderDetail(item) {
     `正文：${view.comment}`,
   ].filter(Boolean).join('\n');
 
-  const companies = [...state.companies.values()].sort((a, b) => a.name.localeCompare(b.name, 'zh-CN'));
-  companySelect.replaceChildren(
-    ...companies.map(company => h('option', { value: company.id }, `${company.name}（${company.id}）`)),
-    h('option', { value: '__new' }, '＋ 新建公司'),
-  );
+  companyCombo.setOptions([...state.companies.values()]
+    .sort((a, b) => a.name.localeCompare(b.name, 'zh-CN'))
+    .map(company => ({ value: company.id, label: company.name, sub: company.id, keys: companyKeys(company) })));
 
-  const hinted = view.companyId ? state.companies.get(view.companyId) : null;
-  const matched = hinted || findCompany(view.company);
-  companySelect.value = matched ? matched.id : '__new';
+  const notes = [];
+  let matched = view.companyId ? state.companies.get(view.companyId) : null;
+  if (matched) {
+    notes.push(`已按提交的公司 ID 匹配「${matched.name}」`);
+  } else {
+    const found = matchCompany(view.company);
+    if (found) {
+      matched = found.company;
+      const via = found.key?.k && normalize(found.key.k) !== normalize(found.company.name)
+        ? `（命中「${found.key.k}」）`
+        : '';
+      notes.push(`已匹配现有公司「${found.company.name}」${via}`);
+    }
+  }
+  companyCombo.setValue(matched ? matched.id : '__new', matched ? matched.name : view.company);
   toggleNewCompany();
 
   newCompanyName.value = view.company || '';
@@ -327,7 +503,9 @@ function renderDetail(item) {
   newCompanyId.dataset.touched = '';
   newCompanyId.value = newCompanySlug.value ? `c_${newCompanySlug.value}` : 'c_';
 
-  renderProjectOptions(matched, view.project);
+  const projectHint = renderProjectOptions(matched, view.project);
+  if (projectHint) notes.push(projectHint);
+  setStatus(detailStatus, notes.join('；'));
   scoreSelect.value = String(view.score || 3);
   titleInput.value = '';
   commentInput.value = view.comment || '';
@@ -379,6 +557,18 @@ function setBusy(busy) {
   approveButton.textContent = busy ? '处理中…' : '通过并发布';
 }
 
+async function loadAliases() {
+  try {
+    const response = await fetch('/lib/aliases.json');
+    if (!response.ok) return;
+    const data = await response.json();
+    if (Array.isArray(data?.companies)) state.library.companies = data.companies;
+    if (Array.isArray(data?.projects)) state.library.projects = data.projects;
+  } catch {
+    // 别名库缺失或损坏时退回纯名称匹配，不阻塞审核
+  }
+}
+
 async function loadData() {
   const { client, api } = state;
   setStatus(globalStatus, '正在加载数据…');
@@ -387,6 +577,7 @@ async function loadData() {
     client.getFile(config.owner, config.publicRepo, config.taxonomyPath, config.publicBranch),
     client.getTree(config.owner, config.publicRepo, config.publicBranch),
     api.listPending(config.maxPending),
+    loadAliases(),
   ]);
   if (!taxonomyFile) throw new Error('公开仓缺少 taxonomy.json');
 
@@ -401,6 +592,7 @@ async function loadData() {
     return file ? parseJson(file.content, path) : null;
   }));
   state.companies = new Map(companyFiles.filter(Boolean).map(company => [company.id, company]));
+  state.aliasIndex = buildAliasIndex(state.companies, state.library);
 
   state.pending = (pendingResult.items || [])
     .map(item => {
@@ -450,6 +642,7 @@ function signOut(message = '') {
   state.pending = [];
   state.pendingTotal = 0;
   state.companies = new Map();
+  state.aliasIndex = new Map();
   state.selected = null;
   state.selectedId = null;
   state.reviewId = null;
@@ -466,7 +659,7 @@ function signOut(message = '') {
 }
 
 function collectDraft() {
-  const projectChoice = projectSelect.value;
+  const projectChoice = projectCombo.value;
   let newProject = null;
   let projectId = '';
   if (projectChoice === '__new') {
@@ -481,7 +674,7 @@ function collectDraft() {
   }
 
   let company;
-  if (companySelect.value === '__new') {
+  if (companyCombo.value === '__new') {
     const companyId = newCompanyId.value.trim();
     if (state.companies.has(companyId)) throw new Error('公司 ID 已存在，请直接选择现有公司');
     company = buildCompany({
@@ -492,7 +685,7 @@ function collectDraft() {
       date: today(),
     });
   } else {
-    const base = state.companies.get(companySelect.value);
+    const base = state.companies.get(companyCombo.value);
     if (!base) throw new Error('未找到公司');
     if (newProject && base.projects.some(project => project.id === newProject.id)) {
       throw new Error('项目 ID 已存在，请直接选择现有项目');
@@ -711,11 +904,6 @@ tabPending.addEventListener('click', () => setTab('pending'));
 tabStaged.addEventListener('click', () => setTab('staged'));
 stageButton.addEventListener('click', handleStage);
 publishBatchButton.addEventListener('click', publishStaged);
-companySelect.addEventListener('change', () => {
-  toggleNewCompany();
-  renderProjectOptions(state.companies.get(companySelect.value) || null, '');
-});
-projectSelect.addEventListener('change', toggleNewProject);
 reviewForm.addEventListener('submit', handleApprove);
 rejectButton.addEventListener('click', handleReject);
 

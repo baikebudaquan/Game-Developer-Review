@@ -54,12 +54,20 @@
             <div id="submission-summary" class="summary"></div>
 
             <div class="grid">
-              <label>公司
-                <select id="company-select"></select>
-              </label>
-              <label>项目
-                <select id="project-select"></select>
-              </label>
+              <div class="field">
+                <span class="field-title">公司</span>
+                <div class="combo">
+                  <input id="company-input" type="search" placeholder="搜索公司：名称 / ID / 别名 / 项目" autocomplete="off" spellcheck="false">
+                  <div id="company-list" class="combo-list" hidden></div>
+                </div>
+              </div>
+              <div class="field">
+                <span class="field-title">项目</span>
+                <div class="combo">
+                  <input id="project-input" type="search" placeholder="搜索项目：名称 / ID / 别名" autocomplete="off" spellcheck="false">
+                  <div id="project-list" class="combo-list" hidden></div>
+                </div>
+              </div>
             </div>
 
             <div id="new-company" class="subpanel" hidden>
